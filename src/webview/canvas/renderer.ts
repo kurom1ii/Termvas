@@ -1,6 +1,6 @@
 // Tile DOM creation and positioning
 
-import { Tile, viewport, bringToFront, isSelected } from './state';
+import { Tile, camera, bringToFront, isSelected } from './state';
 
 export interface TileDom {
   container: HTMLElement;
@@ -97,14 +97,13 @@ export function removeTileDOM(id: string): void {
 }
 
 export function positionTile(dom: TileDom, tile: Tile): void {
-  const sx = tile.x * viewport.zoom + viewport.panX;
-  const sy = tile.y * viewport.zoom + viewport.panY;
+  // Camera: world → screen position. Tile size is FIXED (never changes with zoom).
+  const { sx, sy } = camera.worldToScreen(tile.x, tile.y);
 
-  // Actual pixel dimensions — xterm renders at true screen resolution (crisp text)
   dom.container.style.left = `${sx}px`;
   dom.container.style.top = `${sy}px`;
-  dom.container.style.width = `${tile.width * viewport.zoom}px`;
-  dom.container.style.height = `${tile.height * viewport.zoom}px`;
+  dom.container.style.width = `${tile.width}px`;
+  dom.container.style.height = `${tile.height}px`;
   dom.container.style.transform = '';
   dom.container.style.zIndex = String(tile.zIndex);
 

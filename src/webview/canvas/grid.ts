@@ -1,6 +1,6 @@
 // Dot grid background rendered with Canvas 2D API
 
-import { viewport, GRID_CELL } from './state';
+import { camera, GRID_CELL } from './state';
 
 const MAJOR = 80;
 
@@ -36,13 +36,17 @@ export function drawGrid(): void {
   const bg = style.getPropertyValue('--vscode-editor-background').trim();
   const isDark = isColorDark(bg);
 
-  const step = GRID_CELL * viewport.zoom;
-  const majorStep = MAJOR * viewport.zoom;
+  const step = GRID_CELL * camera.zoom;
+  const majorStep = MAJOR * camera.zoom;
+
+  // Camera offset in screen pixels
+  const camOffX = -camera.x * camera.zoom;
+  const camOffY = -camera.y * camera.zoom;
 
   // Minor dots
-  const dotOffX = ((viewport.panX % step) + step) % step;
-  const dotOffY = ((viewport.panY % step) + step) % step;
-  const dotSize = Math.max(1.5, 2 * viewport.zoom);
+  const dotOffX = ((camOffX % step) + step) % step;
+  const dotOffY = ((camOffY % step) + step) % step;
+  const dotSize = Math.max(1.5, 2 * camera.zoom);
   ctx.fillStyle = isDark ? 'rgba(255,255,255,0.30)' : 'rgba(0,0,0,0.25)';
 
   for (let x = dotOffX; x <= w; x += step) {
@@ -52,9 +56,9 @@ export function drawGrid(): void {
   }
 
   // Major dots (brighter)
-  const majorOffX = ((viewport.panX % majorStep) + majorStep) % majorStep;
-  const majorOffY = ((viewport.panY % majorStep) + majorStep) % majorStep;
-  const majorDotSize = Math.max(2, 2.5 * viewport.zoom);
+  const majorOffX = ((camOffX % majorStep) + majorStep) % majorStep;
+  const majorOffY = ((camOffY % majorStep) + majorStep) % majorStep;
+  const majorDotSize = Math.max(2, 2.5 * camera.zoom);
   ctx.fillStyle = isDark ? 'rgba(255,255,255,0.50)' : 'rgba(0,0,0,0.40)';
 
   for (let x = majorOffX; x <= w; x += majorStep) {

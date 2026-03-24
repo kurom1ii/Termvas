@@ -1,7 +1,7 @@
 // Canvas interactions: pan, zoom, tile drag, tile resize, selection
 
 import {
-  Tile, viewport, ZOOM_MIN, ZOOM_MAX, GRID_CELL,
+  Tile, camera, viewport, ZOOM_MIN, ZOOM_MAX, GRID_CELL,
   getAllTiles, bringToFront, snapToGrid,
   selectTile, deselectTile, clearSelection, toggleSelection,
   isSelected, getSelectedTiles, MIN_TILE_WIDTH, MIN_TILE_HEIGHT,
@@ -18,7 +18,7 @@ let lastZoomFocalY = 0;
 const RUBBER_BAND_K = 400;
 
 function showZoomIndicator(zoomIndicator: HTMLElement): void {
-  const pct = Math.round(viewport.zoom * 100);
+  const pct = Math.round(camera.zoom * 100);
   zoomIndicator.textContent = `${pct}%`;
   zoomIndicator.classList.add('visible');
   clearTimeout(zoomIndicatorTimer);
@@ -30,28 +30,32 @@ function showZoomIndicator(zoomIndicator: HTMLElement): void {
 function snapBackZoom(zoomIndicator: HTMLElement): void {
   const fx = lastZoomFocalX;
   const fy = lastZoomFocalY;
-  const target = viewport.zoom > ZOOM_MAX ? ZOOM_MAX : ZOOM_MIN;
+  const target = camera.zoom > ZOOM_MAX ? ZOOM_MAX : ZOOM_MIN;
 
   function animate() {
-    const prevScale = viewport.zoom;
-    viewport.zoom += (target - viewport.zoom) * 0.15;
+    const prevZoom = camera.zoom;
+    const newZoom = prevZoom + (target - prevZoom) * 0.15;
 
-    if (Math.abs(viewport.zoom - target) < 0.001) {
-      viewport.zoom = target;
+    if (Math.abs(newZoom - target) < 0.001) {
+      camera.zoomToward(fx, fy, target);
+    } else {
+      camera.zoomToward(fx, fy, newZoom);
     }
 
-    const ratio = viewport.zoom / prevScale - 1;
-    viewport.panX -= (fx - viewport.panX) * ratio;
-    viewport.panY -= (fy - viewport.panY) * ratio;
     showZoomIndicator(zoomIndicator);
     drawGrid();
     positionAllTiles(getAllTiles());
 
-    if (viewport.zoom === target) { zoomSnapRaf = undefined; return; }
+    if (camera.zoom === target) { zoomSnapRaf = undefined; return; }
     zoomSnapRaf = requestAnimationFrame(animate);
   }
 
   zoomSnapRaf = requestAnimationFrame(animate);
+}
+
+function updateCanvas(): void {
+  drawGrid();
+  positionAllTiles(getAllTiles());
 }
 
 export function initInteractions(
@@ -75,7 +79,7 @@ export function initInteractions(
     e.preventDefault();
 
     if (e.ctrlKey || e.metaKey) {
-      // Zoom — smooth exponential (Collaborator-style)
+      // Zoom — smooth exponential with rubber-band
       if (zoomSnapRaf) { cancelAnimationFrame(zoomSnapRaf); zoomSnapRaf = undefined; }
       clearTimeout(zoomSnapTimer);
 
@@ -83,43 +87,34 @@ export function initInteractions(
       const mx = e.clientX - rect.left;
       const my = e.clientY - rect.top;
 
-      const prevScale = viewport.zoom;
       let factor = Math.exp((-e.deltaY * 0.6) / 100);
 
       // Rubber-band at limits
-      if (viewport.zoom >= ZOOM_MAX && factor > 1) {
-        const overshoot = viewport.zoom / ZOOM_MAX - 1;
+      if (camera.zoom >= ZOOM_MAX && factor > 1) {
+        const overshoot = camera.zoom / ZOOM_MAX - 1;
         const damping = 1 / (1 + overshoot * RUBBER_BAND_K);
         factor = 1 + (factor - 1) * damping;
-      } else if (viewport.zoom <= ZOOM_MIN && factor < 1) {
-        const overshoot = ZOOM_MIN / viewport.zoom - 1;
+      } else if (camera.zoom <= ZOOM_MIN && factor < 1) {
+        const overshoot = ZOOM_MIN / camera.zoom - 1;
         const damping = 1 / (1 + overshoot * RUBBER_BAND_K);
         factor = 1 - (1 - factor) * damping;
       }
 
-      viewport.zoom *= factor;
-
-      // Focal point pan correction
-      const ratio = viewport.zoom / prevScale - 1;
-      viewport.panX -= (mx - viewport.panX) * ratio;
-      viewport.panY -= (my - viewport.panY) * ratio;
+      camera.zoomToward(mx, my, camera.zoom * factor);
       lastZoomFocalX = mx;
       lastZoomFocalY = my;
 
-      // Snap back if overshot
-      if (viewport.zoom > ZOOM_MAX || viewport.zoom < ZOOM_MIN) {
+      if (camera.zoom > ZOOM_MAX || camera.zoom < ZOOM_MIN) {
         zoomSnapTimer = window.setTimeout(() => snapBackZoom(zoomIndicator), 150);
       }
 
       showZoomIndicator(zoomIndicator);
     } else {
       // Pan
-      viewport.panX -= e.deltaX;
-      viewport.panY -= e.deltaY;
+      camera.panByScreen(-e.deltaX, -e.deltaY);
     }
 
-    drawGrid();
-    positionAllTiles(getAllTiles());
+    updateCanvas();
   }, { passive: false });
 
   // ── Middle-click OR Ctrl+left-click drag to pan ──
@@ -129,29 +124,28 @@ export function initInteractions(
     if (!isMiddle && !isCtrlLeft) return;
     e.preventDefault();
 
-    // Blur any focused terminal so Ctrl+click doesn't type
     if (document.activeElement instanceof HTMLElement) {
       document.activeElement.blur();
     }
 
     const startMX = e.clientX;
     const startMY = e.clientY;
-    const startPanX = viewport.panX;
-    const startPanY = viewport.panY;
+    const startCamX = camera.x;
+    const startCamY = camera.y;
 
     container.style.cursor = 'grabbing';
 
-    // Disable pointer events on tile contents during pan
     const allDoms = getAllTileDoms();
     allDoms.forEach(dom => {
       dom.contentArea.style.pointerEvents = 'none';
     });
 
     function onMove(ev: MouseEvent) {
-      viewport.panX = startPanX + (ev.clientX - startMX);
-      viewport.panY = startPanY + (ev.clientY - startMY);
-      drawGrid();
-      positionAllTiles(getAllTiles());
+      const dsx = ev.clientX - startMX;
+      const dsy = ev.clientY - startMY;
+      camera.x = startCamX - dsx / camera.zoom;
+      camera.y = startCamY - dsy / camera.zoom;
+      updateCanvas();
     }
 
     function onUp() {
@@ -168,16 +162,15 @@ export function initInteractions(
   });
 
   // ── Double-click: new terminal ──
-  let lastClickTime = 0;
   container.addEventListener('dblclick', (e) => {
     const target = e.target as HTMLElement;
-    // Only on empty canvas area
     if (target !== container && target.id !== 'grid-canvas' && target.id !== 'tiles-layer') return;
 
     const rect = container.getBoundingClientRect();
-    const canvasX = (e.clientX - rect.left - viewport.panX) / viewport.zoom;
-    const canvasY = (e.clientY - rect.top - viewport.panY) / viewport.zoom;
-    callbacks.onCreateTile(canvasX, canvasY);
+    const sx = e.clientX - rect.left;
+    const sy = e.clientY - rect.top;
+    const { wx, wy } = camera.screenToWorld(sx, sy);
+    callbacks.onCreateTile(wx, wy);
   });
 
   // ── Click on empty canvas: deselect all ──
@@ -195,23 +188,19 @@ export function initInteractions(
     if (target === container || target.id === 'grid-canvas' || target.id === 'tiles-layer') {
       e.preventDefault();
       const rect = container.getBoundingClientRect();
-      const canvasX = (e.clientX - rect.left - viewport.panX) / viewport.zoom;
-      const canvasY = (e.clientY - rect.top - viewport.panY) / viewport.zoom;
-      callbacks.onCreateTile(canvasX, canvasY);
+      const { wx, wy } = camera.screenToWorld(e.clientX - rect.left, e.clientY - rect.top);
+      callbacks.onCreateTile(wx, wy);
     }
   });
 
   // ── Keyboard shortcuts ──
   container.addEventListener('keydown', (e) => {
-    // Only handle if canvas or tiles-layer is focused
     if (e.key === 'Delete' || e.key === 'Backspace') {
-      // Don't delete if a terminal is focused
       const active = document.activeElement;
       if (active && active.closest('.tile-content')) return;
 
       const selected = getSelectedTiles();
       if (selected.length > 0) {
-        // Dispatch custom event for deletion
         for (const tile of selected) {
           container.dispatchEvent(new CustomEvent('tile-delete', { detail: { id: tile.id } }));
         }
@@ -222,8 +211,7 @@ export function initInteractions(
   // ── Resize observer ──
   const resizeObserver = new ResizeObserver(() => {
     resizeCanvas();
-    drawGrid();
-    positionAllTiles(getAllTiles());
+    updateCanvas();
   });
   resizeObserver.observe(container);
 
@@ -246,25 +234,22 @@ export function attachTileDrag(
 
     const startMX = e.clientX;
     const startMY = e.clientY;
-    const startTX = tile.x;
-    const startTY = tile.y;
 
-    // Group drag context
     const isInSelection = isSelected(tile.id);
     const groupTiles = isInSelection ? getSelectedTiles() : [tile];
     const startPositions = groupTiles.map(t => ({ tile: t, x: t.x, y: t.y }));
 
     let moved = false;
 
-    // Disable pointer events on all tile contents during drag
     const allDoms = getAllTileDoms();
     allDoms.forEach(dom => {
       dom.contentArea.style.pointerEvents = 'none';
     });
 
     function onMove(ev: MouseEvent) {
-      const dx = (ev.clientX - startMX) / viewport.zoom;
-      const dy = (ev.clientY - startMY) / viewport.zoom;
+      // Convert screen delta to world delta
+      const dx = (ev.clientX - startMX) / camera.zoom;
+      const dy = (ev.clientY - startMY) / camera.zoom;
       if (Math.hypot(ev.clientX - startMX, ev.clientY - startMY) >= CLICK_THRESHOLD) moved = true;
 
       for (const sp of startPositions) {
@@ -278,7 +263,6 @@ export function attachTileDrag(
       document.removeEventListener('mousemove', onMove);
       document.removeEventListener('mouseup', onUp);
 
-      // Re-enable pointer events
       allDoms.forEach(dom => {
         dom.contentArea.style.pointerEvents = '';
       });
@@ -289,7 +273,6 @@ export function attachTileDrag(
         }
         onUpdate();
       } else {
-        // Click - select/toggle
         if (ev.shiftKey) {
           toggleSelection(tile.id);
         } else {
@@ -325,27 +308,23 @@ export function attachTileResize(
       const startW = tile.width;
       const startH = tile.height;
 
-      // Disable pointer events
       const allDoms = getAllTileDoms();
       allDoms.forEach(dom => {
         dom.contentArea.style.pointerEvents = 'none';
       });
 
       function onMove(ev: MouseEvent) {
-        const dx = (ev.clientX - startMX) / viewport.zoom;
-        const dy = (ev.clientY - startMY) / viewport.zoom;
+        // Screen delta → world delta (tile size is in world coords)
+        const dx = (ev.clientX - startMX) / camera.zoom;
+        const dy = (ev.clientY - startMY) / camera.zoom;
 
-        if (dir.includes('e')) {
-          tile.width = Math.max(MIN_TILE_WIDTH, startW + dx);
-        }
+        if (dir.includes('e')) tile.width = Math.max(MIN_TILE_WIDTH, startW + dx);
         if (dir.includes('w')) {
           const newW = Math.max(MIN_TILE_WIDTH, startW - dx);
           tile.x = startX + (startW - newW);
           tile.width = newW;
         }
-        if (dir.includes('s')) {
-          tile.height = Math.max(MIN_TILE_HEIGHT, startH + dy);
-        }
+        if (dir.includes('s')) tile.height = Math.max(MIN_TILE_HEIGHT, startH + dy);
         if (dir.includes('n')) {
           const newH = Math.max(MIN_TILE_HEIGHT, startH - dy);
           tile.y = startY + (startH - newH);
@@ -411,18 +390,16 @@ function initMarquee(
     marqueeEl.style.width = `${w}px`;
     marqueeEl.style.height = `${h}px`;
 
-    // Select tiles that intersect marquee
+    // Convert marquee screen rect to world coords
     const rect = container.getBoundingClientRect();
-    const marqLeft = (Math.min(e.clientX, startX) - rect.left - viewport.panX) / viewport.zoom;
-    const marqTop = (Math.min(e.clientY, startY) - rect.top - viewport.panY) / viewport.zoom;
-    const marqRight = marqLeft + w / viewport.zoom;
-    const marqBottom = marqTop + h / viewport.zoom;
+    const topLeft = camera.screenToWorld(x - rect.left, y - rect.top);
+    const botRight = camera.screenToWorld(x - rect.left + w, y - rect.top + h);
 
     clearSelection();
     for (const tile of getAllTiles()) {
       const tRight = tile.x + tile.width;
       const tBottom = tile.y + tile.height;
-      if (tile.x < marqRight && tRight > marqLeft && tile.y < marqBottom && tBottom > marqTop) {
+      if (tile.x < botRight.wx && tRight > topLeft.wx && tile.y < botRight.wy && tBottom > topLeft.wy) {
         selectTile(tile.id);
       }
     }

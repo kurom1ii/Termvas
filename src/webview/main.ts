@@ -2,7 +2,7 @@
 
 import { initGrid, drawGrid, resizeCanvas } from './canvas/grid';
 import {
-  viewport, getAllTiles, addTile, removeTile, getTile,
+  camera, viewport, getAllTiles, addTile, removeTile, getTile,
   generateId, bringToFront, snapToGrid, selectTile, clearSelection, isSelected,
   DEFAULT_TILE_WIDTH, DEFAULT_TILE_HEIGHT, GRID_CELL,
 } from './canvas/state';
@@ -146,15 +146,13 @@ window.addEventListener('message', (event) => {
       });
       break;
     case 'create-tile': {
-      // Create a new terminal tile from extension host (e.g. context menu "New Termvas")
       const tiles = getAllTiles();
       const offsetX = tiles.length * 40;
       const offsetY = tiles.length * 40;
-      const cx = container.clientWidth / 2 - DEFAULT_TILE_WIDTH / 2 + offsetX;
-      const cy = container.clientHeight / 2 - DEFAULT_TILE_HEIGHT / 2 + offsetY;
-      const cX = (cx - viewport.panX) / viewport.zoom;
-      const cY = (cy - viewport.panY) / viewport.zoom;
-      createTerminalTile(cX, cY, msg.cwd);
+      const screenCX = container.clientWidth / 2 - DEFAULT_TILE_WIDTH / 2 + offsetX;
+      const screenCY = container.clientHeight / 2 - DEFAULT_TILE_HEIGHT / 2 + offsetY;
+      const { wx, wy } = camera.screenToWorld(screenCX, screenCY);
+      createTerminalTile(wx, wy, msg.cwd);
       break;
     }
   }
@@ -162,10 +160,9 @@ window.addEventListener('message', (event) => {
 
 // Create initial terminal tile at center, using initial cwd if provided
 requestAnimationFrame(() => {
-  const cx = container.clientWidth / 2 - DEFAULT_TILE_WIDTH / 2;
-  const cy = container.clientHeight / 2 - DEFAULT_TILE_HEIGHT / 2;
-  const canvasX = (cx - viewport.panX) / viewport.zoom;
-  const canvasY = (cy - viewport.panY) / viewport.zoom;
+  const screenCX = container.clientWidth / 2 - DEFAULT_TILE_WIDTH / 2;
+  const screenCY = container.clientHeight / 2 - DEFAULT_TILE_HEIGHT / 2;
+  const { wx, wy } = camera.screenToWorld(screenCX, screenCY);
   const initialCwd = container.dataset.initialCwd || undefined;
-  createTerminalTile(canvasX, canvasY, initialCwd);
+  createTerminalTile(wx, wy, initialCwd);
 });

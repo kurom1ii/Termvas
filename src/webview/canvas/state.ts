@@ -1,4 +1,4 @@
-// Canvas tile data model
+// Canvas tile data model + Camera system
 
 export interface Tile {
   id: string;
@@ -11,11 +11,69 @@ export interface Tile {
 }
 
 export const GRID_CELL = 20;
-export const DEFAULT_TILE_WIDTH = 680;
-export const DEFAULT_TILE_HEIGHT = 480;
+export const DEFAULT_TILE_WIDTH = 800;
+export const DEFAULT_TILE_HEIGHT = 700;
 export const MIN_TILE_WIDTH = 240;
 export const MIN_TILE_HEIGHT = 160;
 
+export const ZOOM_MIN = 0.33;
+export const ZOOM_MAX = 1.5;
+
+// ── Camera ──
+// Manages the viewport into the infinite canvas world.
+// Zoom changes how the world is projected to screen, NOT tile sizes.
+export const camera = {
+  // World coordinates of the viewport origin (top-left visible point)
+  x: 0,
+  y: 0,
+  // Zoom level
+  zoom: 1,
+
+  /** Convert world coords → screen pixels */
+  worldToScreen(wx: number, wy: number): { sx: number; sy: number } {
+    return {
+      sx: (wx - this.x) * this.zoom,
+      sy: (wy - this.y) * this.zoom,
+    };
+  },
+
+  /** Convert screen pixels → world coords */
+  screenToWorld(sx: number, sy: number): { wx: number; wy: number } {
+    return {
+      wx: sx / this.zoom + this.x,
+      wy: sy / this.zoom + this.y,
+    };
+  },
+
+  /** Zoom toward a focal point (screen coords) */
+  zoomToward(focalSX: number, focalSY: number, newZoom: number): void {
+    // World point under the focal screen pixel before zoom
+    const worldBefore = this.screenToWorld(focalSX, focalSY);
+    this.zoom = newZoom;
+    // After zoom change, adjust camera so the same world point stays under the focal pixel
+    this.x = worldBefore.wx - focalSX / this.zoom;
+    this.y = worldBefore.wy - focalSY / this.zoom;
+  },
+
+  /** Pan by screen-space delta */
+  panByScreen(dsx: number, dsy: number): void {
+    this.x -= dsx / this.zoom;
+    this.y -= dsy / this.zoom;
+  },
+};
+
+// ── Backward compat: viewport getter mapped to camera ──
+// Some code still reads viewport.panX/panY/zoom
+export const viewport = {
+  get panX() { return -camera.x * camera.zoom; },
+  set panX(v: number) { camera.x = -v / camera.zoom; },
+  get panY() { return -camera.y * camera.zoom; },
+  set panY(v: number) { camera.y = -v / camera.zoom; },
+  get zoom() { return camera.zoom; },
+  set zoom(v: number) { camera.zoom = v; },
+};
+
+// ── Tiles ──
 const tiles: Tile[] = [];
 let nextZIndex = 1;
 let idCounter = 0;
@@ -59,40 +117,17 @@ export function snapToGrid(tile: Tile): void {
   tile.height = Math.round(tile.height / GRID_CELL) * GRID_CELL;
 }
 
-// Selection state
+// ── Selection ──
 const selectedIds = new Set<string>();
 
-export function selectTile(id: string): void {
-  selectedIds.add(id);
-}
-
-export function deselectTile(id: string): void {
-  selectedIds.delete(id);
-}
-
+export function selectTile(id: string): void { selectedIds.add(id); }
+export function deselectTile(id: string): void { selectedIds.delete(id); }
 export function toggleSelection(id: string): void {
   if (selectedIds.has(id)) selectedIds.delete(id);
   else selectedIds.add(id);
 }
-
-export function clearSelection(): void {
-  selectedIds.clear();
-}
-
-export function isSelected(id: string): boolean {
-  return selectedIds.has(id);
-}
-
+export function clearSelection(): void { selectedIds.clear(); }
+export function isSelected(id: string): boolean { return selectedIds.has(id); }
 export function getSelectedTiles(): Tile[] {
   return tiles.filter((t) => selectedIds.has(t.id));
 }
-
-// Viewport state
-export const viewport = {
-  panX: 0,
-  panY: 0,
-  zoom: 1,
-};
-
-export const ZOOM_MIN = 0.33;
-export const ZOOM_MAX = 1.5;
