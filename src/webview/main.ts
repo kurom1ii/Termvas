@@ -31,8 +31,8 @@ function updateCanvas(): void {
   positionAllTiles(getAllTiles());
 }
 
-// Create a new terminal tile at canvas coordinates
-function createTerminalTile(canvasX: number, canvasY: number): void {
+// Create a new terminal tile at canvas coordinates, optionally with a custom cwd
+function createTerminalTile(canvasX: number, canvasY: number, cwd?: string): void {
   const id = generateId();
   const tile = addTile({
     id,
@@ -68,8 +68,8 @@ function createTerminalTile(canvasX: number, canvasY: number): void {
   // Create xterm.js terminal in the content area
   createTerminal(id, dom.contentArea);
 
-  // Request PTY from extension host
-  vscode.postMessage({ type: 'pty-create', id });
+  // Request PTY from extension host (with optional cwd)
+  vscode.postMessage({ type: 'pty-create', id, cwd });
 
   // Select the new tile
   clearSelection();
@@ -122,6 +122,18 @@ window.addEventListener('message', (event) => {
         updateAllThemes();
       });
       break;
+    case 'create-tile': {
+      // Create a new terminal tile from extension host (e.g. context menu "New Termvas")
+      const tiles = getAllTiles();
+      const offsetX = tiles.length * 40;
+      const offsetY = tiles.length * 40;
+      const cx = container.clientWidth / 2 - DEFAULT_TILE_WIDTH / 2 + offsetX;
+      const cy = container.clientHeight / 2 - DEFAULT_TILE_HEIGHT / 2 + offsetY;
+      const cX = (cx - viewport.panX) / viewport.zoom;
+      const cY = (cy - viewport.panY) / viewport.zoom;
+      createTerminalTile(cX, cY, msg.cwd);
+      break;
+    }
   }
 });
 
@@ -132,4 +144,7 @@ requestAnimationFrame(() => {
   const canvasX = (cx - viewport.panX) / viewport.zoom;
   const canvasY = (cy - viewport.panY) / viewport.zoom;
   createTerminalTile(canvasX, canvasY);
+
+  // Notify extension host that webview is ready
+  vscode.postMessage({ type: 'webview-ready' });
 });

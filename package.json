@@ -15,9 +15,30 @@
     "commands": [
       {
         "command": "termvas.open",
-        "title": "Termvas: Open Canvas"
+        "title": "Termvas: Open Canvas",
+        "category": "Termvas"
+      },
+      {
+        "command": "termvas.openHere",
+        "title": "New Termvas",
+        "category": "Termvas"
       }
-    ]
+    ],
+    "menus": {
+      "explorer/context": [
+        {
+          "command": "termvas.openHere",
+          "group": "navigation@32",
+          "when": "explorerResourceIsFolder"
+        }
+      ],
+      "editor/title/context": [
+        {
+          "command": "termvas.openHere",
+          "group": "1_termvas"
+        }
+      ]
+    }
   },
   "scripts": {
     "build": "node esbuild.mjs",

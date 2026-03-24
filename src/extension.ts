@@ -7,9 +7,13 @@ let panel: vscode.WebviewPanel | undefined;
 let ptyManager: PtyManager | undefined;
 
 export function activate(context: vscode.ExtensionContext) {
-  const cmd = vscode.commands.registerCommand('termvas.open', () => {
+  function openCanvas(cwd?: string) {
     if (panel) {
       panel.reveal();
+      // If a cwd was provided, tell the webview to create a new terminal tile with that cwd
+      if (cwd) {
+        panel.webview.postMessage({ type: 'create-tile', cwd });
+      }
       return;
     }
 
@@ -29,6 +33,17 @@ export function activate(context: vscode.ExtensionContext) {
     ptyManager = new PtyManager(panel);
 
     panel.webview.html = getWebviewContent(panel.webview, context.extensionPath);
+
+    // If opened with a cwd, send it once webview is ready
+    if (cwd) {
+      const readyHandler = panel.webview.onDidReceiveMessage((msg) => {
+        if (msg.type === 'webview-ready') {
+          panel!.webview.postMessage({ type: 'create-tile', cwd });
+          readyHandler.dispose();
+        }
+      });
+      context.subscriptions.push(readyHandler);
+    }
 
     panel.webview.onDidReceiveMessage(
       (msg) => {
@@ -61,9 +76,22 @@ export function activate(context: vscode.ExtensionContext) {
       ptyManager = undefined;
       panel = undefined;
     }, undefined, context.subscriptions);
+  }
+
+  // Command: open canvas (command palette)
+  const cmd = vscode.commands.registerCommand('termvas.open', () => {
+    openCanvas();
   });
 
-  context.subscriptions.push(cmd);
+  // Command: open canvas from context menu (with folder cwd)
+  const cmdHere = vscode.commands.registerCommand('termvas.openHere', (uri?: vscode.Uri) => {
+    const cwd = uri?.fsPath
+      || vscode.window.activeTextEditor?.document.uri.fsPath
+      || vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
+    openCanvas(cwd);
+  });
+
+  context.subscriptions.push(cmd, cmdHere);
 }
 
 function getWebviewContent(webview: vscode.Webview, extensionPath: string): string {
