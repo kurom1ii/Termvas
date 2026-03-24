@@ -42,7 +42,7 @@ export class PtyManager {
     if (!env.LANG || !env.LANG.includes('UTF-8')) {
       env.LANG = 'en_US.UTF-8';
     }
-    env.TERM = 'xterm-256color';
+    env.TERM = 'xterm-kitty';
     env.COLORTERM = 'truecolor';
 
     // Sanitize session name for tmux (alphanumeric + dash only)
@@ -54,7 +54,7 @@ export class PtyManager {
     const proc = pty.spawn('tmux', [
       'new-session', '-s', tmuxSession, '-x', '80', '-y', '24', 'fish',
     ], {
-      name: 'xterm-256color',
+      name: 'xterm-kitty',
       cols: 80,
       rows: 24,
       cwd: workDir,
