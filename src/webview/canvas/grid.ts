@@ -1,8 +1,9 @@
-// Dot grid background rendered with Canvas 2D API
+// Dot grid background — crosshair style at major, dots at minor
 
 import { camera, GRID_CELL } from './state';
 
 const MAJOR = 80;
+const CROSS_R = 3; // cross arm radius in px
 
 let canvasEl: HTMLCanvasElement;
 let ctx: CanvasRenderingContext2D;
@@ -31,7 +32,6 @@ export function drawGrid(): void {
 
   ctx.clearRect(0, 0, w, h);
 
-  // Determine dot colors from current theme
   const style = getComputedStyle(document.documentElement);
   const bg = style.getPropertyValue('--vscode-editor-background').trim();
   const isDark = isColorDark(bg);
@@ -39,39 +39,45 @@ export function drawGrid(): void {
   const step = GRID_CELL * camera.zoom;
   const majorStep = MAJOR * camera.zoom;
 
-  // Camera offset in screen pixels
   const camOffX = -camera.x * camera.zoom;
   const camOffY = -camera.y * camera.zoom;
 
-  // Minor dots
+  // Minor dots — small subtle dots
   const dotOffX = ((camOffX % step) + step) % step;
   const dotOffY = ((camOffY % step) + step) % step;
-  const dotSize = Math.max(1.5, 2 * camera.zoom);
-  ctx.fillStyle = isDark ? 'rgba(255,255,255,0.30)' : 'rgba(0,0,0,0.25)';
+  ctx.fillStyle = isDark ? 'rgba(255,255,255,0.12)' : 'rgba(0,0,0,0.10)';
 
   for (let x = dotOffX; x <= w; x += step) {
     for (let y = dotOffY; y <= h; y += step) {
-      ctx.fillRect(Math.round(x), Math.round(y), dotSize, dotSize);
+      ctx.fillRect(Math.round(x), Math.round(y), 1, 1);
     }
   }
 
-  // Major dots (brighter)
+  // Major intersections — small crosshairs (+)
   const majorOffX = ((camOffX % majorStep) + majorStep) % majorStep;
   const majorOffY = ((camOffY % majorStep) + majorStep) % majorStep;
-  const majorDotSize = Math.max(2, 2.5 * camera.zoom);
-  ctx.fillStyle = isDark ? 'rgba(255,255,255,0.50)' : 'rgba(0,0,0,0.40)';
+  const cr = Math.max(2, CROSS_R * camera.zoom);
+  ctx.strokeStyle = isDark ? 'rgba(255,255,255,0.20)' : 'rgba(0,0,0,0.15)';
+  ctx.lineWidth = 1;
 
+  ctx.beginPath();
   for (let x = majorOffX; x <= w; x += majorStep) {
     for (let y = majorOffY; y <= h; y += majorStep) {
-      ctx.fillRect(Math.round(x), Math.round(y), majorDotSize, majorDotSize);
+      const px = Math.round(x) + 0.5;
+      const py = Math.round(y) + 0.5;
+      // Horizontal arm
+      ctx.moveTo(px - cr, py);
+      ctx.lineTo(px + cr, py);
+      // Vertical arm
+      ctx.moveTo(px, py - cr);
+      ctx.lineTo(px, py + cr);
     }
   }
+  ctx.stroke();
 }
 
 function isColorDark(color: string): boolean {
-  // Parse rgb/rgba or hex
   let r = 0, g = 0, b = 0;
-
   const rgbMatch = color.match(/rgba?\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)/);
   if (rgbMatch) {
     r = parseInt(rgbMatch[1]);
@@ -79,18 +85,11 @@ function isColorDark(color: string): boolean {
     b = parseInt(rgbMatch[3]);
   } else if (color.startsWith('#')) {
     const hex = color.slice(1);
-    if (hex.length === 3) {
-      r = parseInt(hex[0] + hex[0], 16);
-      g = parseInt(hex[1] + hex[1], 16);
-      b = parseInt(hex[2] + hex[2], 16);
-    } else if (hex.length >= 6) {
+    if (hex.length >= 6) {
       r = parseInt(hex.slice(0, 2), 16);
       g = parseInt(hex.slice(2, 4), 16);
       b = parseInt(hex.slice(4, 6), 16);
     }
   }
-
-  // Luminance
-  const luminance = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
-  return luminance < 0.5;
+  return (0.299 * r + 0.587 * g + 0.114 * b) / 255 < 0.5;
 }
