@@ -37,6 +37,9 @@ export function getTerminalInstance(id: string): TerminalInstance | undefined {
 }
 
 export function createTerminal(sessionId: string, contentArea: HTMLElement): TerminalInstance {
+  // Force minimum 2x DPR so text stays sharp when CSS transform scales down
+  const minDPR = Math.max(2, window.devicePixelRatio || 1);
+
   const term = new Terminal({
     theme: getThemeFromVSCode(),
     fontFamily: '"Cascadia Code", "JetBrains Mono", "Fira Code", Menlo, Monaco, "Courier New", monospace',
@@ -49,6 +52,7 @@ export function createTerminal(sessionId: string, contentArea: HTMLElement): Ter
     drawBoldTextInBrightColors: true,
     letterSpacing: 0,
     lineHeight: 1.1,
+    overviewRulerWidth: 0,
   });
 
   const fit = new FitAddon();
@@ -61,12 +65,28 @@ export function createTerminal(sessionId: string, contentArea: HTMLElement): Ter
   term.unicode.activeVersion = '11';
 
   // WebGL renderer with DOM fallback
+  let webglLoaded = false;
   try {
     const webgl = new WebglAddon();
     webgl.onContextLoss(() => webgl.dispose());
     term.loadAddon(webgl);
+    webglLoaded = true;
   } catch {
     // DOM renderer fallback
+  }
+
+  // Boost canvas DPR for sharp text when CSS transform scales
+  if (webglLoaded) {
+    requestAnimationFrame(() => {
+      const canvases = contentArea.querySelectorAll('canvas');
+      canvases.forEach(c => {
+        const rect = c.getBoundingClientRect();
+        if (rect.width > 0 && rect.height > 0) {
+          c.width = Math.round(rect.width * minDPR);
+          c.height = Math.round(rect.height * minDPR);
+        }
+      });
+    });
   }
 
   // Initial fit after layout settles

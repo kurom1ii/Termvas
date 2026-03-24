@@ -177,6 +177,10 @@ html, body {
   background: var(--vscode-editor-background, #1e1e1e);
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25);
   transition: box-shadow 0.15s ease;
+  /* Force own GPU compositing layer — improves transform:scale rendering */
+  will-change: transform;
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
 }
 
 .canvas-tile:hover {
@@ -254,6 +258,11 @@ html, body {
   min-height: 0;
   overflow: hidden;
   position: relative;
+}
+
+/* Force xterm canvas to render at high DPR for sharp scaling */
+.tile-content canvas {
+  image-rendering: auto;
 }
 
 .tile-content .xterm {
