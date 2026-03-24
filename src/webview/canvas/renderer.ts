@@ -100,15 +100,12 @@ export function positionTile(dom: TileDom, tile: Tile): void {
   const sx = tile.x * viewport.zoom + viewport.panX;
   const sy = tile.y * viewport.zoom + viewport.panY;
 
-  // Position at zoom-adjusted screen coords
+  // Actual pixel dimensions — xterm renders at true screen resolution (crisp text)
   dom.container.style.left = `${sx}px`;
   dom.container.style.top = `${sy}px`;
-  // Keep layout dimensions at canvas-space size (terminal cols/rows unaffected)
-  dom.container.style.width = `${tile.width}px`;
-  dom.container.style.height = `${tile.height}px`;
-  // Visual scale via CSS transform — shrinks/grows appearance without relayout
-  dom.container.style.transform = `scale(${viewport.zoom})`;
-  dom.container.style.transformOrigin = 'top left';
+  dom.container.style.width = `${tile.width * viewport.zoom}px`;
+  dom.container.style.height = `${tile.height * viewport.zoom}px`;
+  dom.container.style.transform = '';
   dom.container.style.zIndex = String(tile.zIndex);
 
   // Selection highlight
