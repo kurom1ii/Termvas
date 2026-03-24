@@ -102,10 +102,8 @@ export function positionTile(dom: TileDom, tile: Tile): void {
   dom.container.style.top = `${sy}px`;
   dom.container.style.width = `${tile.width}px`;
   dom.container.style.height = `${tile.height}px`;
-  // CSS zoom renders at target resolution (NOT bitmap scaling like transform:scale)
-  // Text stays crisp. ResizeObserver sees unzoomed dimensions → terminal never refits.
-  (dom.container.style as any).zoom = String(camera.zoom);
-  dom.container.style.transform = '';
+  dom.container.style.transform = `scale(${camera.zoom})`;
+  dom.container.style.transformOrigin = 'top left';
   dom.container.style.zIndex = String(tile.zIndex);
 
   // Selection highlight
