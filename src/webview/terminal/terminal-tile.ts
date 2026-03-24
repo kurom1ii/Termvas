@@ -116,13 +116,13 @@ export function createTerminal(sessionId: string, contentArea: HTMLElement): Ter
     vscodeApi.postMessage({ type: 'pty-resize', id: sessionId, cols, rows });
   });
 
-  // ResizeObserver for auto-fit
-  let rafId = 0;
+  // ResizeObserver for auto-fit (debounced 150ms to avoid spam during zoom)
+  let resizeTimer: number | undefined;
   const resizeObserver = new ResizeObserver((entries) => {
     const { width, height } = entries[0].contentRect;
     if (width > 0 && height > 0) {
-      cancelAnimationFrame(rafId);
-      rafId = requestAnimationFrame(() => fit.fit());
+      clearTimeout(resizeTimer);
+      resizeTimer = window.setTimeout(() => fit.fit(), 150);
     }
   });
   resizeObserver.observe(contentArea);
@@ -150,7 +150,7 @@ export function createTerminal(sessionId: string, contentArea: HTMLElement): Ter
       clearTimeout(flushTimer);
       flushData();
     }
-    cancelAnimationFrame(rafId);
+    clearTimeout(resizeTimer);
     resizeObserver.disconnect();
     onDataDisposable.dispose();
     onResizeDisposable.dispose();
