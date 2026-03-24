@@ -108,13 +108,12 @@ export function createTerminal(sessionId: string, contentArea: HTMLElement): Ter
     term.focus();
   });
 
-  // Hover out of tile → blur terminal
-  const tileContainer = contentArea.parentElement;
-  if (tileContainer) {
-    tileContainer.addEventListener('mouseleave', () => {
-      term.blur();
-    });
-  }
+  // Leave terminal content → blur IMMEDIATELY
+  // Moving to title bar = contentArea mouseleave = instant blur
+  // So Ctrl+D on title bar works without delay
+  contentArea.addEventListener('mouseleave', () => {
+    term.blur();
+  });
 
   // User input → PTY
   const onDataDisposable = term.onData((data: string) => {
