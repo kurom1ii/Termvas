@@ -97,18 +97,14 @@ export function removeTileDOM(id: string): void {
 }
 
 export function positionTile(dom: TileDom, tile: Tile): void {
-  // Camera: world → screen position
   const { sx, sy } = camera.worldToScreen(tile.x, tile.y);
 
+  // Actual pixel dimensions — always crisp, no CSS transform blur
   dom.container.style.left = `${sx}px`;
   dom.container.style.top = `${sy}px`;
-  // World-space dimensions (terminal renders at this native size → crisp)
-  dom.container.style.width = `${tile.width}px`;
-  dom.container.style.height = `${tile.height}px`;
-  // Visual scale via CSS transform — tile appears smaller/larger with zoom
-  // but internal layout stays at world size → terminal never refits
-  dom.container.style.transform = `scale(${camera.zoom})`;
-  dom.container.style.transformOrigin = 'top left';
+  dom.container.style.width = `${tile.width * camera.zoom}px`;
+  dom.container.style.height = `${tile.height * camera.zoom}px`;
+  dom.container.style.transform = '';
   dom.container.style.zIndex = String(tile.zIndex);
 
   // Selection highlight

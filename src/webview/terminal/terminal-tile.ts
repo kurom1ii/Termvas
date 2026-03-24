@@ -126,13 +126,13 @@ export function createTerminal(sessionId: string, contentArea: HTMLElement): Ter
     vscodeApi.postMessage({ type: 'pty-resize', id: sessionId, cols, rows });
   });
 
-  // ResizeObserver for auto-fit (debounced 150ms to avoid spam during zoom)
+  // ResizeObserver for auto-fit (debounced 300ms — only refits after zoom/resize settles)
   let resizeTimer: number | undefined;
   const resizeObserver = new ResizeObserver((entries) => {
     const { width, height } = entries[0].contentRect;
     if (width > 0 && height > 0) {
       clearTimeout(resizeTimer);
-      resizeTimer = window.setTimeout(() => fit.fit(), 150);
+      resizeTimer = window.setTimeout(() => fit.fit(), 300);
     }
   });
   resizeObserver.observe(contentArea);
