@@ -10,6 +10,49 @@ import { positionTile, positionAllTiles, getAllTileDoms, getTileDom } from './re
 import { drawGrid, resizeCanvas } from './grid';
 
 let zoomIndicatorTimer: number | undefined;
+let zoomSnapTimer: number | undefined;
+let zoomSnapRaf: number | undefined;
+let lastZoomFocalX = 0;
+let lastZoomFocalY = 0;
+
+const RUBBER_BAND_K = 400;
+
+function showZoomIndicator(zoomIndicator: HTMLElement): void {
+  const pct = Math.round(viewport.zoom * 100);
+  zoomIndicator.textContent = `${pct}%`;
+  zoomIndicator.classList.add('visible');
+  clearTimeout(zoomIndicatorTimer);
+  zoomIndicatorTimer = window.setTimeout(() => {
+    zoomIndicator.classList.remove('visible');
+  }, 1200);
+}
+
+function snapBackZoom(zoomIndicator: HTMLElement): void {
+  const fx = lastZoomFocalX;
+  const fy = lastZoomFocalY;
+  const target = viewport.zoom > ZOOM_MAX ? ZOOM_MAX : ZOOM_MIN;
+
+  function animate() {
+    const prevScale = viewport.zoom;
+    viewport.zoom += (target - viewport.zoom) * 0.15;
+
+    if (Math.abs(viewport.zoom - target) < 0.001) {
+      viewport.zoom = target;
+    }
+
+    const ratio = viewport.zoom / prevScale - 1;
+    viewport.panX -= (fx - viewport.panX) * ratio;
+    viewport.panY -= (fy - viewport.panY) * ratio;
+    showZoomIndicator(zoomIndicator);
+    drawGrid();
+    positionAllTiles(getAllTiles());
+
+    if (viewport.zoom === target) { zoomSnapRaf = undefined; return; }
+    zoomSnapRaf = requestAnimationFrame(animate);
+  }
+
+  zoomSnapRaf = requestAnimationFrame(animate);
+}
 
 export function initInteractions(
   container: HTMLElement,
@@ -21,38 +64,51 @@ export function initInteractions(
     onTileResized: (id: string) => void;
   }
 ): void {
-  // ── Pan: scroll wheel (skip if cursor is over a terminal tile-content) ──
+  // ── Pan/Zoom: scroll wheel (skip if cursor is over a terminal tile-content) ──
   container.addEventListener('wheel', (e) => {
-    // Focus guard: if scrolling over a terminal content area, let xterm handle it
     const target = e.target as HTMLElement;
     if (target.closest('.tile-content')) return;
 
     e.preventDefault();
 
     if (e.ctrlKey || e.metaKey) {
-      // Zoom — faster factors (12% per tick)
+      // Zoom — smooth exponential (Collaborator-style)
+      if (zoomSnapRaf) { cancelAnimationFrame(zoomSnapRaf); zoomSnapRaf = undefined; }
+      clearTimeout(zoomSnapTimer);
+
       const rect = container.getBoundingClientRect();
       const mx = e.clientX - rect.left;
       const my = e.clientY - rect.top;
 
-      const zoomFactor = e.deltaY > 0 ? 0.88 : 1.12;
-      const newZoom = Math.max(ZOOM_MIN, Math.min(ZOOM_MAX, viewport.zoom * zoomFactor));
+      const prevScale = viewport.zoom;
+      let factor = Math.exp((-e.deltaY * 0.6) / 100);
 
-      // Focal point zoom
-      const canvasXBefore = (mx - viewport.panX) / viewport.zoom;
-      const canvasYBefore = (my - viewport.panY) / viewport.zoom;
-      viewport.zoom = newZoom;
-      viewport.panX = mx - canvasXBefore * viewport.zoom;
-      viewport.panY = my - canvasYBefore * viewport.zoom;
+      // Rubber-band at limits
+      if (viewport.zoom >= ZOOM_MAX && factor > 1) {
+        const overshoot = viewport.zoom / ZOOM_MAX - 1;
+        const damping = 1 / (1 + overshoot * RUBBER_BAND_K);
+        factor = 1 + (factor - 1) * damping;
+      } else if (viewport.zoom <= ZOOM_MIN && factor < 1) {
+        const overshoot = ZOOM_MIN / viewport.zoom - 1;
+        const damping = 1 / (1 + overshoot * RUBBER_BAND_K);
+        factor = 1 - (1 - factor) * damping;
+      }
 
-      // Show zoom indicator
-      const pct = Math.round(viewport.zoom * 100);
-      zoomIndicator.textContent = `${pct}%`;
-      zoomIndicator.classList.add('visible');
-      clearTimeout(zoomIndicatorTimer);
-      zoomIndicatorTimer = window.setTimeout(() => {
-        zoomIndicator.classList.remove('visible');
-      }, 1200);
+      viewport.zoom *= factor;
+
+      // Focal point pan correction
+      const ratio = viewport.zoom / prevScale - 1;
+      viewport.panX -= (mx - viewport.panX) * ratio;
+      viewport.panY -= (my - viewport.panY) * ratio;
+      lastZoomFocalX = mx;
+      lastZoomFocalY = my;
+
+      // Snap back if overshot
+      if (viewport.zoom > ZOOM_MAX || viewport.zoom < ZOOM_MIN) {
+        zoomSnapTimer = window.setTimeout(() => snapBackZoom(zoomIndicator), 150);
+      }
+
+      showZoomIndicator(zoomIndicator);
     } else {
       // Pan
       viewport.panX -= e.deltaX;

@@ -97,14 +97,16 @@ export function removeTileDOM(id: string): void {
 }
 
 export function positionTile(dom: TileDom, tile: Tile): void {
-  // Zoom only affects position (spacing between tiles), NOT tile size
   const sx = tile.x * viewport.zoom + viewport.panX;
   const sy = tile.y * viewport.zoom + viewport.panY;
 
+  // Size in canvas-space pixels (unchanged), visually scaled by CSS transform
   dom.container.style.left = `${sx}px`;
   dom.container.style.top = `${sy}px`;
   dom.container.style.width = `${tile.width}px`;
   dom.container.style.height = `${tile.height}px`;
+  dom.container.style.transform = `scale(${viewport.zoom})`;
+  dom.container.style.transformOrigin = 'top left';
   dom.container.style.zIndex = String(tile.zIndex);
 
   // Selection highlight
