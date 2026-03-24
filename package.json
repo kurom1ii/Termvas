@@ -15,12 +15,12 @@
     "commands": [
       {
         "command": "termvas.open",
-        "title": "Termvas: Open Canvas",
+        "title": "Open Canvas",
         "category": "Termvas"
       },
       {
         "command": "termvas.restart",
-        "title": "Termvas: Restart Extension",
+        "title": "Restart Extension",
         "category": "Termvas"
       }
     ],
