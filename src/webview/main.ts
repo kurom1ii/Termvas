@@ -20,6 +20,15 @@ const gridCanvas = document.getElementById('grid-canvas') as HTMLCanvasElement;
 const tilesLayer = document.getElementById('tiles-layer')!;
 const marqueeEl = document.getElementById('marquee')!;
 const zoomIndicator = document.getElementById('zoom-indicator')!;
+const panelList = document.getElementById('panel-list')!;
+
+// Track last known mouse position for smart duplicate
+let lastMouseX = 0;
+let lastMouseY = 0;
+document.addEventListener('mousemove', (e) => {
+  lastMouseX = e.clientX;
+  lastMouseY = e.clientY;
+});
 
 // Initialize canvas grid
 initGrid(container, gridCanvas);
@@ -31,7 +40,61 @@ function updateCanvas(): void {
   positionAllTiles(getAllTiles());
 }
 
-// Create a new terminal tile at canvas coordinates, optionally with a custom cwd
+// ── Side Panel ──
+
+function updatePanel(): void {
+  const tiles = getAllTiles();
+  panelList.innerHTML = '';
+
+  tiles.forEach((tile, index) => {
+    const item = document.createElement('div');
+    item.className = 'panel-item' + (isSelected(tile.id) ? ' active' : '');
+
+    const icon = document.createElement('span');
+    icon.className = 'panel-item-icon';
+    icon.textContent = '>';
+
+    const label = document.createElement('span');
+    label.className = 'panel-item-label';
+    label.textContent = `Terminal ${index + 1}`;
+
+    item.appendChild(icon);
+    item.appendChild(label);
+
+    // Click → focus camera on this tile
+    item.addEventListener('click', () => {
+      clearSelection();
+      selectTile(tile.id);
+      bringToFront(tile);
+
+      // Animate camera to center on this tile
+      const targetCamX = tile.x + tile.width / 2 - container.clientWidth / 2 / camera.zoom;
+      const targetCamY = tile.y + tile.height / 2 - container.clientHeight / 2 / camera.zoom;
+
+      // Smooth pan animation
+      const startX = camera.x;
+      const startY = camera.y;
+      const duration = 300;
+      const startTime = performance.now();
+
+      function animatePan(now: number) {
+        const t = Math.min(1, (now - startTime) / duration);
+        const ease = 1 - Math.pow(1 - t, 3); // ease-out cubic
+        camera.x = startX + (targetCamX - startX) * ease;
+        camera.y = startY + (targetCamY - startY) * ease;
+        updateCanvas();
+        updatePanel();
+        if (t < 1) requestAnimationFrame(animatePan);
+      }
+      requestAnimationFrame(animatePan);
+    });
+
+    panelList.appendChild(item);
+  });
+}
+
+// ── Tile Creation ──
+
 function createTerminalTile(canvasX: number, canvasY: number, cwd?: string): void {
   const id = generateId();
   const tile = addTile({
@@ -53,31 +116,25 @@ function createTerminalTile(canvasX: number, canvasY: number, cwd?: string): voi
         const d = getTileDom(tileId);
         if (d) positionTile(d, t);
       }
+      updatePanel();
     },
   });
 
-  // Attach drag and resize
-  attachTileDrag(tile, dom.titleBar, updateCanvas);
+  attachTileDrag(tile, dom.titleBar, () => { updateCanvas(); updatePanel(); });
   attachTileResize(tile, dom.resizeHandles, updateCanvas, (tileId) => {
     const inst = getTerminalInstance(tileId);
-    if (inst) {
-      requestAnimationFrame(() => inst.fit.fit());
-    }
+    if (inst) requestAnimationFrame(() => inst.fit.fit());
   });
 
-  // Create xterm.js terminal in the content area
   createTerminal(id, dom.contentArea);
-
-  // Request PTY from extension host (with optional cwd)
   vscode.postMessage({ type: 'pty-create', id, cwd });
 
-  // Select the new tile
   clearSelection();
   selectTile(tile.id);
   updateCanvas();
+  updatePanel();
 }
 
-// Destroy a tile and its terminal
 function destroyTile(id: string): void {
   const inst = getTerminalInstance(id);
   if (inst) {
@@ -87,48 +144,74 @@ function destroyTile(id: string): void {
   removeTile(id);
   removeTileDOM(id);
   updateCanvas();
+  updatePanel();
 }
 
-// Initialize interactions
+// ── Smart Duplicate ──
+// Cursor in horizontal zone of tile → place to the right (same row)
+// Cursor below tile → place below (next row)
+
+function smartDuplicate(sourceTile: typeof getAllTiles extends () => (infer T)[] ? T : never): void {
+  const GAP = 40;
+  const rect = container.getBoundingClientRect();
+  const mouseScreenY = lastMouseY - rect.top;
+
+  // Convert tile bottom edge to screen Y
+  const tileBottomScreen = camera.worldToScreen(sourceTile.x, sourceTile.y + sourceTile.height).sy;
+
+  let newX: number;
+  let newY: number;
+
+  if (mouseScreenY > tileBottomScreen) {
+    // Mouse below tile → place below (next row)
+    newX = sourceTile.x;
+    newY = sourceTile.y + sourceTile.height + GAP;
+  } else {
+    // Mouse horizontal with tile → place to the right (same row)
+    newX = sourceTile.x + sourceTile.width + GAP;
+    newY = sourceTile.y;
+  }
+
+  createTerminalTile(newX, newY);
+}
+
+// ── Interactions ──
+
 initInteractions(container, tilesLayer, zoomIndicator, marqueeEl, {
   onCreateTile: createTerminalTile,
   onTileResized: (id: string) => {
     const inst = getTerminalInstance(id);
-    if (inst) {
-      requestAnimationFrame(() => inst.fit.fit());
-    }
+    if (inst) requestAnimationFrame(() => inst.fit.fit());
   },
 });
 
-// Handle tile-delete custom event
 container.addEventListener('tile-delete', ((e: CustomEvent) => {
   destroyTile(e.detail.id);
 }) as EventListener);
 
-// Ctrl+D to duplicate selected terminal tile
-// Works when title bar was clicked (tile selected) — not when terminal has keyboard focus
+// Ctrl+D smart duplicate
 window.addEventListener('keydown', (e) => {
   if ((e.ctrlKey || e.metaKey) && e.key === 'd') {
     const selected = getAllTiles().filter(t => isSelected(t.id));
     if (selected.length === 0) return;
 
-    // Check if any terminal has actual keyboard focus (user is typing)
     const active = document.activeElement;
     const inTerminal = active && (
       active.closest('.tile-content') ||
       active.closest('.xterm') ||
       active.tagName === 'TEXTAREA'
     );
-    if (inTerminal) return; // let Ctrl+D go to terminal (EOF)
+    if (inTerminal) return;
 
     e.preventDefault();
     for (const tile of selected) {
-      createTerminalTile(tile.x + 40, tile.y + 40);
+      smartDuplicate(tile);
     }
   }
 });
 
-// Listen for messages from extension host
+// ── Messages from extension host ──
+
 window.addEventListener('message', (event) => {
   const msg = event.data;
   switch (msg.type) {
@@ -139,7 +222,6 @@ window.addEventListener('message', (event) => {
       handlePtyExit(msg.id);
       break;
     case 'theme-changed':
-      // Re-read CSS variables and update everything
       requestAnimationFrame(() => {
         drawGrid();
         updateAllThemes();
@@ -158,7 +240,7 @@ window.addEventListener('message', (event) => {
   }
 });
 
-// Create initial terminal tile at center, using initial cwd if provided
+// Create initial terminal tile at center
 requestAnimationFrame(() => {
   const screenCX = container.clientWidth / 2 - DEFAULT_TILE_WIDTH / 2;
   const screenCY = container.clientHeight / 2 - DEFAULT_TILE_HEIGHT / 2;

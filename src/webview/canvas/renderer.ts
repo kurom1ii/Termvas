@@ -99,12 +99,14 @@ export function removeTileDOM(id: string): void {
 export function positionTile(dom: TileDom, tile: Tile): void {
   const { sx, sy } = camera.worldToScreen(tile.x, tile.y);
 
-  // Actual pixel dimensions — always crisp, no CSS transform blur
+  // Collaborator-style: world-space dimensions + CSS transform for visual scale
+  // ResizeObserver sees constant world-space size → terminal never refits during zoom
   dom.container.style.left = `${sx}px`;
   dom.container.style.top = `${sy}px`;
-  dom.container.style.width = `${tile.width * camera.zoom}px`;
-  dom.container.style.height = `${tile.height * camera.zoom}px`;
-  dom.container.style.transform = '';
+  dom.container.style.width = `${tile.width}px`;
+  dom.container.style.height = `${tile.height}px`;
+  dom.container.style.transform = `scale(${camera.zoom})`;
+  dom.container.style.transformOrigin = 'top left';
   dom.container.style.zIndex = String(tile.zIndex);
 
   // Selection highlight
