@@ -122,10 +122,17 @@ export function initInteractions(
     positionAllTiles(getAllTiles());
   }, { passive: false });
 
-  // ── Middle-click drag to pan ──
+  // ── Middle-click OR Ctrl+left-click drag to pan ──
   container.addEventListener('mousedown', (e) => {
-    if (e.button !== 1) return; // middle-click only
+    const isMiddle = e.button === 1;
+    const isCtrlLeft = e.button === 0 && (e.ctrlKey || e.metaKey);
+    if (!isMiddle && !isCtrlLeft) return;
     e.preventDefault();
+
+    // Blur any focused terminal so Ctrl+click doesn't type
+    if (document.activeElement instanceof HTMLElement) {
+      document.activeElement.blur();
+    }
 
     const startMX = e.clientX;
     const startMY = e.clientY;

@@ -106,14 +106,20 @@ container.addEventListener('tile-delete', ((e: CustomEvent) => {
 }) as EventListener);
 
 // Ctrl+D to duplicate selected terminal tile
+// Works when title bar was clicked (tile selected) — not when terminal has keyboard focus
 window.addEventListener('keydown', (e) => {
   if ((e.ctrlKey || e.metaKey) && e.key === 'd') {
-    // Don't duplicate if typing in terminal
-    const active = document.activeElement;
-    if (active && active.closest('.tile-content')) return;
-
     const selected = getAllTiles().filter(t => isSelected(t.id));
     if (selected.length === 0) return;
+
+    // Check if any terminal has actual keyboard focus (user is typing)
+    const active = document.activeElement;
+    const inTerminal = active && (
+      active.closest('.tile-content') ||
+      active.closest('.xterm') ||
+      active.tagName === 'TEXTAREA'
+    );
+    if (inTerminal) return; // let Ctrl+D go to terminal (EOF)
 
     e.preventDefault();
     for (const tile of selected) {
