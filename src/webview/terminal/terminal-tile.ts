@@ -129,13 +129,13 @@ export function createTerminal(sessionId: string, contentArea: HTMLElement): Ter
     vscodeApi.postMessage({ type: 'pty-resize', id: sessionId, cols, rows });
   });
 
-  // ResizeObserver — refit terminal when tile is manually resized
-  let resizeTimer: number | undefined;
+  // ResizeObserver — refit terminal when tile is manually resized (rAF, no setTimeout)
+  let rafId = 0;
   const resizeObserver = new ResizeObserver((entries) => {
     const { width, height } = entries[0].contentRect;
     if (width > 0 && height > 0) {
-      clearTimeout(resizeTimer);
-      resizeTimer = window.setTimeout(() => fit.fit(), 100);
+      cancelAnimationFrame(rafId);
+      rafId = requestAnimationFrame(() => fit.fit());
     }
   });
   resizeObserver.observe(contentArea);
@@ -163,7 +163,7 @@ export function createTerminal(sessionId: string, contentArea: HTMLElement): Ter
       clearTimeout(flushTimer);
       flushData();
     }
-    clearTimeout(resizeTimer);
+    cancelAnimationFrame(rafId);
     resizeObserver.disconnect();
     onDataDisposable.dispose();
     onResizeDisposable.dispose();
