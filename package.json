@@ -19,7 +19,8 @@
       {
         "command": "termvas.open",
         "title": "Open Canvas",
-        "category": "Termvas"
+        "category": "Termvas",
+        "icon": "$(terminal)"
       },
       {
         "command": "termvas.restart",
@@ -33,6 +34,12 @@
           "command": "termvas.open",
           "group": "navigation@32",
           "when": "explorerResourceIsFolder"
+        }
+      ],
+      "editor/title": [
+        {
+          "command": "termvas.open",
+          "group": "navigation"
         }
       ]
     }
