@@ -11,8 +11,8 @@ export interface Tile {
 }
 
 export const GRID_CELL = 20;
-export const DEFAULT_TILE_WIDTH = 480;
-export const DEFAULT_TILE_HEIGHT = 320;
+export const DEFAULT_TILE_WIDTH = 680;
+export const DEFAULT_TILE_HEIGHT = 480;
 export const MIN_TILE_WIDTH = 240;
 export const MIN_TILE_HEIGHT = 160;
 

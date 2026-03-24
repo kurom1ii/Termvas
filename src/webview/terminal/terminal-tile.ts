@@ -82,23 +82,33 @@ export function createTerminal(sessionId: string, contentArea: HTMLElement): Ter
     });
   });
 
-  // ── Focus lock: hover/click terminal = focus terminal, scroll stays in terminal ──
-  // Stop wheel events from bubbling to canvas (prevents pan/zoom while scrolling terminal)
+  // ── Focus lock: scroll/input isolation ──
+
+  // Wheel events: Ctrl+wheel → let bubble to canvas for zoom
+  // Normal scroll → stop propagation, xterm handles scrollback
   contentArea.addEventListener('wheel', (e) => {
+    if (e.ctrlKey || e.metaKey) {
+      // Zoom: blur terminal and let event bubble to canvas
+      term.blur();
+      return;
+    }
+    // Normal scroll: keep in terminal, don't pan canvas
     e.stopPropagation();
   }, { passive: true });
 
-  // Hover into terminal content → auto-focus so keyboard input goes to terminal
+  // Click inside content → focus terminal
+  contentArea.addEventListener('mousedown', (e) => {
+    // Don't focus during middle-click (canvas pan)
+    if (e.button === 1) return;
+    term.focus();
+  });
+
+  // Hover into terminal → focus (keyboard input goes to terminal)
   contentArea.addEventListener('mouseenter', () => {
     term.focus();
   });
 
-  // Also focus on any click inside content area
-  contentArea.addEventListener('mousedown', () => {
-    term.focus();
-  });
-
-  // Hover out of the entire tile container → blur terminal
+  // Hover out of tile → blur terminal
   const tileContainer = contentArea.parentElement;
   if (tileContainer) {
     tileContainer.addEventListener('mouseleave', () => {

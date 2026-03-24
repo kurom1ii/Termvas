@@ -3,7 +3,7 @@
 import { initGrid, drawGrid, resizeCanvas } from './canvas/grid';
 import {
   viewport, getAllTiles, addTile, removeTile, getTile,
-  generateId, bringToFront, snapToGrid, selectTile, clearSelection,
+  generateId, bringToFront, snapToGrid, selectTile, clearSelection, isSelected,
   DEFAULT_TILE_WIDTH, DEFAULT_TILE_HEIGHT, GRID_CELL,
 } from './canvas/state';
 import { createTileDOM, removeTileDOM, positionAllTiles, positionTile, getTileDom } from './canvas/renderer';
@@ -104,6 +104,23 @@ initInteractions(container, tilesLayer, zoomIndicator, marqueeEl, {
 container.addEventListener('tile-delete', ((e: CustomEvent) => {
   destroyTile(e.detail.id);
 }) as EventListener);
+
+// Ctrl+D to duplicate selected terminal tile
+window.addEventListener('keydown', (e) => {
+  if ((e.ctrlKey || e.metaKey) && e.key === 'd') {
+    // Don't duplicate if typing in terminal
+    const active = document.activeElement;
+    if (active && active.closest('.tile-content')) return;
+
+    const selected = getAllTiles().filter(t => isSelected(t.id));
+    if (selected.length === 0) return;
+
+    e.preventDefault();
+    for (const tile of selected) {
+      createTerminalTile(tile.x + 40, tile.y + 40);
+    }
+  }
+});
 
 // Listen for messages from extension host
 window.addEventListener('message', (event) => {

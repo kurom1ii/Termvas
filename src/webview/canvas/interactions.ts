@@ -64,10 +64,13 @@ export function initInteractions(
     onTileResized: (id: string) => void;
   }
 ): void {
-  // ── Pan/Zoom: scroll wheel (skip if cursor is over a terminal tile-content) ──
+  // ── Pan/Zoom: scroll wheel ──
   container.addEventListener('wheel', (e) => {
     const target = e.target as HTMLElement;
-    if (target.closest('.tile-content')) return;
+    const overTerminal = target.closest('.tile-content');
+
+    // Normal scroll over terminal → let xterm handle it, skip canvas pan
+    if (overTerminal && !(e.ctrlKey || e.metaKey)) return;
 
     e.preventDefault();
 
