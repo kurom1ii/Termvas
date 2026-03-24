@@ -19,24 +19,6 @@ export const MIN_TILE_HEIGHT = 160;
 export const ZOOM_MIN = 0.33;
 export const ZOOM_MAX = 1.5;
 
-// Zoom lock — when true, use CSS transform (fast). When false, use pixel dims (crisp).
-export let isZooming = false;
-let zoomLockTimer: number | undefined;
-let onZoomEnd: (() => void) | null = null;
-
-export function setZooming(): void {
-  isZooming = true;
-  clearTimeout(zoomLockTimer);
-  zoomLockTimer = window.setTimeout(() => {
-    isZooming = false;
-    if (onZoomEnd) onZoomEnd();
-  }, 300);
-}
-
-export function setOnZoomEnd(cb: () => void): void {
-  onZoomEnd = cb;
-}
-
 // ── Camera ──
 // Manages the viewport into the infinite canvas world.
 // Zoom changes how the world is projected to screen, NOT tile sizes.

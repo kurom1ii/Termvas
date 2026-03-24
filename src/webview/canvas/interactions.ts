@@ -1,7 +1,7 @@
 // Canvas interactions: pan, zoom, tile drag, tile resize, selection
 
 import {
-  Tile, camera, viewport, ZOOM_MIN, ZOOM_MAX, GRID_CELL, setZooming,
+  Tile, camera, viewport, ZOOM_MIN, ZOOM_MAX, GRID_CELL,
   getAllTiles, bringToFront, snapToGrid,
   selectTile, deselectTile, clearSelection, toggleSelection,
   isSelected, getSelectedTiles, MIN_TILE_WIDTH, MIN_TILE_HEIGHT,
@@ -101,7 +101,6 @@ export function initInteractions(
       }
 
       camera.zoomToward(mx, my, camera.zoom * factor);
-      setZooming(); // lock terminal refit during zoom
       lastZoomFocalX = mx;
       lastZoomFocalY = my;
 
@@ -118,19 +117,18 @@ export function initInteractions(
     updateCanvas();
   }, { passive: false });
 
-  // ── Middle-click OR Ctrl+left-click drag to pan ──
-  // Ctrl+left: stay in pan mode while Ctrl held, even after mouse release.
-  // Only exit when BOTH Ctrl and mouse are released.
+  // ── Middle-click drag to pan ──
+  let isPanning = false;
+
   container.addEventListener('mousedown', (e) => {
-    const isMiddle = e.button === 1;
-    const isCtrlLeft = e.button === 0 && (e.ctrlKey || e.metaKey);
-    if (!isMiddle && !isCtrlLeft) return;
+    if (e.button !== 1) return;
     e.preventDefault();
 
     if (document.activeElement instanceof HTMLElement) {
       document.activeElement.blur();
     }
 
+    isPanning = true;
     let lastX = e.clientX;
     let lastY = e.clientY;
 
@@ -141,48 +139,26 @@ export function initInteractions(
       dom.contentArea.style.pointerEvents = 'none';
     });
 
-    let mouseDown = true;
-
     function onMove(ev: MouseEvent) {
-      const dx = ev.clientX - lastX;
-      const dy = ev.clientY - lastY;
+      camera.x -= (ev.clientX - lastX) / camera.zoom;
+      camera.y -= (ev.clientY - lastY) / camera.zoom;
       lastX = ev.clientX;
       lastY = ev.clientY;
-      camera.x -= dx / camera.zoom;
-      camera.y -= dy / camera.zoom;
       updateCanvas();
     }
 
-    function cleanup() {
+    function onUp() {
       document.removeEventListener('mousemove', onMove);
-      document.removeEventListener('mouseup', onMouseUp);
-      document.removeEventListener('keyup', onKeyUp);
+      document.removeEventListener('mouseup', onUp);
       container.style.cursor = '';
+      isPanning = false;
       allDoms.forEach(dom => {
         dom.contentArea.style.pointerEvents = '';
       });
     }
 
-    function onMouseUp() {
-      mouseDown = false;
-      if (isMiddle) {
-        // Middle-click: release immediately on mouseup
-        cleanup();
-      }
-      // Ctrl+left: keep pan mode until Ctrl released
-    }
-
-    function onKeyUp(ev: KeyboardEvent) {
-      if (ev.key === 'Control' || ev.key === 'Meta') {
-        if (!mouseDown) cleanup();
-      }
-    }
-
     document.addEventListener('mousemove', onMove);
-    document.addEventListener('mouseup', onMouseUp);
-    if (isCtrlLeft) {
-      document.addEventListener('keyup', onKeyUp);
-    }
+    document.addEventListener('mouseup', onUp);
   });
 
   // ── Double-click: new terminal ──
@@ -240,7 +216,7 @@ export function initInteractions(
   resizeObserver.observe(container);
 
   // ── Marquee selection ──
-  initMarquee(container, tilesLayer, marqueeEl);
+  initMarquee(container, tilesLayer, marqueeEl, () => isPanning);
 }
 
 export function attachTileDrag(
@@ -380,13 +356,15 @@ export function attachTileResize(
 function initMarquee(
   container: HTMLElement,
   tilesLayer: HTMLElement,
-  marqueeEl: HTMLElement
+  marqueeEl: HTMLElement,
+  isPanningFn: () => boolean
 ): void {
   let active = false;
   let startX = 0;
   let startY = 0;
 
   container.addEventListener('mousedown', (e) => {
+    if (isPanningFn()) return; // skip marquee during pan
     const target = e.target as HTMLElement;
     if (target !== container && target.id !== 'grid-canvas' && target.id !== 'tiles-layer') return;
     if (e.button !== 0) return;
