@@ -78,13 +78,8 @@ export function activate(context: vscode.ExtensionContext) {
     }, undefined, context.subscriptions);
   }
 
-  // Command: open canvas (command palette)
-  const cmd = vscode.commands.registerCommand('termvas.open', () => {
-    openCanvas();
-  });
-
-  // Command: open canvas from context menu (with folder cwd)
-  const cmdHere = vscode.commands.registerCommand('termvas.openHere', (uri?: vscode.Uri) => {
+  // Command: open canvas (command palette + context menu)
+  const cmd = vscode.commands.registerCommand('termvas.open', (uri?: vscode.Uri) => {
     const cwd = uri?.fsPath
       || vscode.window.activeTextEditor?.document.uri.fsPath
       || vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
@@ -103,7 +98,7 @@ export function activate(context: vscode.ExtensionContext) {
     await vscode.commands.executeCommand('workbench.action.reloadWindow');
   });
 
-  context.subscriptions.push(cmd, cmdHere, cmdRestart);
+  context.subscriptions.push(cmd, cmdRestart);
 }
 
 function getWebviewContent(webview: vscode.Webview, extensionPath: string): string {

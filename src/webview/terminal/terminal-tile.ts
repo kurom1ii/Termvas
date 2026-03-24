@@ -38,14 +38,16 @@ export function getTerminalInstance(id: string): TerminalInstance | undefined {
 export function createTerminal(sessionId: string, contentArea: HTMLElement): TerminalInstance {
   const term = new Terminal({
     theme: getThemeFromVSCode(),
-    fontFamily: 'var(--vscode-editor-font-family, "Cascadia Code", Menlo, Monaco, "Courier New", monospace)',
-    fontSize: 13,
+    fontFamily: '"Cascadia Code", "JetBrains Mono", "Fira Code", Menlo, Monaco, "Courier New", monospace',
+    fontSize: 14,
     fontWeight: '400',
-    fontWeightBold: '600',
+    fontWeightBold: '700',
     cursorBlink: true,
     scrollback: 200000,
     allowProposedApi: true,
     drawBoldTextInBrightColors: true,
+    letterSpacing: 0,
+    lineHeight: 1.1,
   });
 
   const fit = new FitAddon();

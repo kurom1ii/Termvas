@@ -42,8 +42,8 @@ export function drawGrid(): void {
   // Minor dots
   const dotOffX = ((viewport.panX % step) + step) % step;
   const dotOffY = ((viewport.panY % step) + step) % step;
-  const dotSize = Math.max(1, 1.5 * viewport.zoom);
-  ctx.fillStyle = isDark ? 'rgba(255,255,255,0.18)' : 'rgba(0,0,0,0.15)';
+  const dotSize = Math.max(1.5, 2 * viewport.zoom);
+  ctx.fillStyle = isDark ? 'rgba(255,255,255,0.30)' : 'rgba(0,0,0,0.25)';
 
   for (let x = dotOffX; x <= w; x += step) {
     for (let y = dotOffY; y <= h; y += step) {
@@ -54,8 +54,8 @@ export function drawGrid(): void {
   // Major dots (brighter)
   const majorOffX = ((viewport.panX % majorStep) + majorStep) % majorStep;
   const majorOffY = ((viewport.panY % majorStep) + majorStep) % majorStep;
-  const majorDotSize = Math.max(1.5, 2 * viewport.zoom);
-  ctx.fillStyle = isDark ? 'rgba(255,255,255,0.35)' : 'rgba(0,0,0,0.30)';
+  const majorDotSize = Math.max(2, 2.5 * viewport.zoom);
+  ctx.fillStyle = isDark ? 'rgba(255,255,255,0.50)' : 'rgba(0,0,0,0.40)';
 
   for (let x = majorOffX; x <= w; x += majorStep) {
     for (let y = majorOffY; y <= h; y += majorStep) {

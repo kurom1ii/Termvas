@@ -19,11 +19,6 @@
         "category": "Termvas"
       },
       {
-        "command": "termvas.openHere",
-        "title": "New Termvas",
-        "category": "Termvas"
-      },
-      {
         "command": "termvas.restart",
         "title": "Termvas: Restart Extension",
         "category": "Termvas"
@@ -32,15 +27,9 @@
     "menus": {
       "explorer/context": [
         {
-          "command": "termvas.openHere",
+          "command": "termvas.open",
           "group": "navigation@32",
           "when": "explorerResourceIsFolder"
-        }
-      ],
-      "editor/title/context": [
-        {
-          "command": "termvas.openHere",
-          "group": "1_termvas"
         }
       ]
     }
