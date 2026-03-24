@@ -95,4 +95,4 @@ export const viewport = {
 };
 
 export const ZOOM_MIN = 0.33;
-export const ZOOM_MAX = 1.0;
+export const ZOOM_MAX = 1.5;

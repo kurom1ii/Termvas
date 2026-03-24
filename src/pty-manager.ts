@@ -1,5 +1,6 @@
 import * as vscode from 'vscode';
 import * as os from 'os';
+import { execSync } from 'child_process';
 
 // node-pty is loaded dynamically to handle missing native module gracefully
 let pty: typeof import('node-pty');
@@ -12,6 +13,7 @@ try {
 interface Session {
   process: import('node-pty').IPty;
   disposables: import('node-pty').IDisposable[];
+  tmuxSession: string; // tmux session name for cleanup
 }
 
 export class PtyManager {
@@ -34,7 +36,6 @@ export class PtyManager {
 
     if (this.sessions.has(id)) return;
 
-    const shell = this.getDefaultShell();
     const workDir = cwd || vscode.workspace.workspaceFolders?.[0]?.uri.fsPath || os.homedir();
 
     const env = { ...process.env } as Record<string, string>;
@@ -42,10 +43,17 @@ export class PtyManager {
       env.LANG = 'en_US.UTF-8';
     }
     env.TERM = 'xterm-256color';
-    // Ensure COLORTERM is set for true color support
     env.COLORTERM = 'truecolor';
 
-    const proc = pty.spawn(shell, [], {
+    // Sanitize session name for tmux (alphanumeric + dash only)
+    const tmuxSession = 'tv-' + id.replace(/[^a-zA-Z0-9-]/g, '').slice(0, 32);
+
+    // Spawn tmux new-session running fish shell
+    // -d = detached initially (we attach immediately via the pty itself)
+    // Using tmux ensures session persistence and multiplexing
+    const proc = pty.spawn('tmux', [
+      'new-session', '-s', tmuxSession, '-x', '80', '-y', '24', 'fish',
+    ], {
       name: 'xterm-256color',
       cols: 80,
       rows: 24,
@@ -64,11 +72,12 @@ export class PtyManager {
     disposables.push(
       proc.onExit(({ exitCode }) => {
         this.panel.webview.postMessage({ type: 'pty-exit', id, exitCode });
+        this.cleanupTmuxSession(tmuxSession);
         this.sessions.delete(id);
       })
     );
 
-    this.sessions.set(id, { process: proc, disposables });
+    this.sessions.set(id, { process: proc, disposables, tmuxSession });
   }
 
   writeSession(id: string, data: string): void {
@@ -87,6 +96,10 @@ export class PtyManager {
     const session = this.sessions.get(id);
     if (!session) return;
     for (const d of session.disposables) d.dispose();
+
+    // Kill tmux session first
+    this.cleanupTmuxSession(session.tmuxSession);
+
     try {
       session.process.kill();
     } catch {
@@ -101,17 +114,11 @@ export class PtyManager {
     }
   }
 
-  private getDefaultShell(): string {
-    // Respect VSCode terminal settings
-    const config = vscode.workspace.getConfiguration('terminal.integrated');
-    const platform = os.platform();
-
-    if (platform === 'win32') {
-      return config.get<string>('defaultProfile.windows') || process.env.COMSPEC || 'cmd.exe';
+  private cleanupTmuxSession(name: string): void {
+    try {
+      execSync(`tmux kill-session -t ${name} 2>/dev/null`);
+    } catch {
+      // Session may already be dead
     }
-    if (platform === 'darwin') {
-      return config.get<string>('shell.osx') || process.env.SHELL || '/bin/zsh';
-    }
-    return config.get<string>('shell.linux') || process.env.SHELL || '/bin/bash';
   }
 }

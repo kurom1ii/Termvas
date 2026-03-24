@@ -80,6 +80,22 @@ export function createTerminal(sessionId: string, contentArea: HTMLElement): Ter
     });
   });
 
+  // ── Focus lock: hover/click terminal = focus terminal, scroll stays in terminal ──
+  // Stop wheel events from bubbling to canvas (prevents pan/zoom while scrolling terminal)
+  contentArea.addEventListener('wheel', (e) => {
+    e.stopPropagation();
+  }, { passive: true });
+
+  // Hover into terminal → auto-focus so keyboard input goes to terminal
+  contentArea.addEventListener('mouseenter', () => {
+    term.focus();
+  });
+
+  // Hover out of terminal → blur so canvas can receive input again
+  contentArea.addEventListener('mouseleave', () => {
+    term.blur();
+  });
+
   // User input → PTY
   const onDataDisposable = term.onData((data: string) => {
     vscodeApi.postMessage({ type: 'pty-write', id: sessionId, data });

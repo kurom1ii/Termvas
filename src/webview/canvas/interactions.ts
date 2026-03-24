@@ -21,17 +21,21 @@ export function initInteractions(
     onTileResized: (id: string) => void;
   }
 ): void {
-  // ── Pan: scroll wheel ──
+  // ── Pan: scroll wheel (skip if cursor is over a terminal tile-content) ──
   container.addEventListener('wheel', (e) => {
+    // Focus guard: if scrolling over a terminal content area, let xterm handle it
+    const target = e.target as HTMLElement;
+    if (target.closest('.tile-content')) return;
+
     e.preventDefault();
 
     if (e.ctrlKey || e.metaKey) {
-      // Zoom
+      // Zoom — faster factors (12% per tick)
       const rect = container.getBoundingClientRect();
       const mx = e.clientX - rect.left;
       const my = e.clientY - rect.top;
 
-      const zoomFactor = e.deltaY > 0 ? 0.95 : 1.05;
+      const zoomFactor = e.deltaY > 0 ? 0.88 : 1.12;
       const newZoom = Math.max(ZOOM_MIN, Math.min(ZOOM_MAX, viewport.zoom * zoomFactor));
 
       // Focal point zoom
@@ -58,6 +62,44 @@ export function initInteractions(
     drawGrid();
     positionAllTiles(getAllTiles());
   }, { passive: false });
+
+  // ── Middle-click drag to pan ──
+  container.addEventListener('mousedown', (e) => {
+    if (e.button !== 1) return; // middle-click only
+    e.preventDefault();
+
+    const startMX = e.clientX;
+    const startMY = e.clientY;
+    const startPanX = viewport.panX;
+    const startPanY = viewport.panY;
+
+    container.style.cursor = 'grabbing';
+
+    // Disable pointer events on tile contents during pan
+    const allDoms = getAllTileDoms();
+    allDoms.forEach(dom => {
+      dom.contentArea.style.pointerEvents = 'none';
+    });
+
+    function onMove(ev: MouseEvent) {
+      viewport.panX = startPanX + (ev.clientX - startMX);
+      viewport.panY = startPanY + (ev.clientY - startMY);
+      drawGrid();
+      positionAllTiles(getAllTiles());
+    }
+
+    function onUp() {
+      document.removeEventListener('mousemove', onMove);
+      document.removeEventListener('mouseup', onUp);
+      container.style.cursor = '';
+      allDoms.forEach(dom => {
+        dom.contentArea.style.pointerEvents = '';
+      });
+    }
+
+    document.addEventListener('mousemove', onMove);
+    document.addEventListener('mouseup', onUp);
+  });
 
   // ── Double-click: new terminal ──
   let lastClickTime = 0;
