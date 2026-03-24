@@ -5,7 +5,6 @@ import { FitAddon } from '@xterm/addon-fit';
 import { WebglAddon } from '@xterm/addon-webgl';
 import { Unicode11Addon } from '@xterm/addon-unicode11';
 import { getThemeFromVSCode } from './theme';
-import { getIsPanning } from '../canvas/interactions';
 
 // VS Code-style data buffering interval (5ms)
 const DATA_BUFFER_FLUSH_MS = 5;
@@ -84,31 +83,11 @@ export function createTerminal(sessionId: string, contentArea: HTMLElement): Ter
     });
   });
 
-  // ── Focus lock: input isolation ──
-  // No wheel handler needed — canvas captures Ctrl+wheel in capture phase,
-  // normal scroll handled by xterm natively, canvas pan skips tile-content.
-
-  // Click inside content → focus terminal (skip during pan/Ctrl)
-  contentArea.addEventListener('mousedown', (e) => {
-    if (e.button === 1) return;
-    if (e.ctrlKey || e.metaKey) return; // Ctrl+click = pan, not focus
-    if (getIsPanning()) return;
-    term.focus();
-  });
-
-  // Hover into terminal → focus (skip during pan)
-  contentArea.addEventListener('mouseenter', () => {
-    if (getIsPanning()) return;
-    term.focus();
-  });
-
-  // Leave terminal content → blur IMMEDIATELY
-  // Moving to title bar = contentArea mouseleave = instant blur
-  // So Ctrl+D on title bar works without delay
-  contentArea.addEventListener('mouseleave', () => {
-    term.blur();
-  });
-
+  // ── Focus: handled by content-overlay in renderer.ts ──
+  // Overlay blocks mouse until tile is clicked (focused).
+  // When focused, overlay pointerEvents=none → xterm receives input.
+  // When canvas background clicked, overlay re-enables → xterm blocked.
+  // Ctrl+wheel always works because overlay passes wheel to canvas.
   // User input → PTY
   const onDataDisposable = term.onData((data: string) => {
     vscodeApi.postMessage({ type: 'pty-write', id: sessionId, data });

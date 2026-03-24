@@ -251,6 +251,15 @@ html, body {
   background: var(--vscode-toolbar-hoverBackground, rgba(255,255,255,0.1));
 }
 
+/* ── Tile Content Overlay — blocks mouse until focused, passes wheel for zoom ── */
+
+.tile-content-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 10;
+  cursor: default;
+}
+
 /* ── Tile Content (Terminal) ── */
 
 .tile-content {

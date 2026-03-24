@@ -177,13 +177,17 @@ export function initInteractions(
     callbacks.onCreateTile(wx, wy);
   });
 
-  // ── Click on empty canvas: deselect all ──
+  // ── Click on empty canvas: deselect all + re-enable overlays (blur tiles) ──
   container.addEventListener('mousedown', (e) => {
     if (_isPanning) return;
-    if (e.ctrlKey || e.metaKey) return; // Ctrl+click reserved for pan
+    if (e.ctrlKey || e.metaKey) return;
     const t = e.target as HTMLElement;
     if (t === container || t.id === 'grid-canvas' || t.id === 'tiles-layer') {
       if (!e.shiftKey) clearSelection();
+      // Blur all tiles: re-enable content overlays
+      getAllTileDoms().forEach(dom => {
+        dom.contentOverlay.style.pointerEvents = '';
+      });
       positionAllTiles(getAllTiles());
     }
   });

@@ -7,6 +7,7 @@ export interface TileDom {
   titleBar: HTMLElement;
   titleText: HTMLElement;
   contentArea: HTMLElement;
+  contentOverlay: HTMLElement;
   closeBtn: HTMLElement;
   resizeHandles: HTMLElement[];
 }
@@ -61,6 +62,13 @@ export function createTileDOM(
   const contentArea = document.createElement('div');
   contentArea.className = 'tile-content';
 
+  // Content overlay — blocks mouse events to xterm until tile is focused.
+  // Wheel events pass through overlay → bubble to canvas → Ctrl+wheel zoom works.
+  // On focus: overlay pointerEvents=none → xterm receives input.
+  const contentOverlay = document.createElement('div');
+  contentOverlay.className = 'tile-content-overlay';
+  contentArea.appendChild(contentOverlay);
+
   // Resize handles (8 directions)
   const resizeHandles: HTMLElement[] = [];
   const directions = ['n', 'ne', 'e', 'se', 's', 'sw', 'w', 'nw'];
@@ -75,14 +83,15 @@ export function createTileDOM(
   container.appendChild(titleBar);
   container.appendChild(contentArea);
 
-  // Focus on click
+  // Click on tile → focus: disable overlay so xterm receives input
   container.addEventListener('mousedown', () => {
     callbacks.onFocus(tile.id);
+    contentOverlay.style.pointerEvents = 'none';
   });
 
   tilesLayer.appendChild(container);
 
-  const dom: TileDom = { container, titleBar, titleText, contentArea, closeBtn, resizeHandles };
+  const dom: TileDom = { container, titleBar, titleText, contentArea, contentOverlay, closeBtn, resizeHandles };
   tileDoms.set(tile.id, dom);
   positionTile(dom, tile);
   return dom;
