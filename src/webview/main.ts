@@ -42,6 +42,38 @@ function updateCanvas(): void {
 
 // ── Side Panel ──
 
+const terminalSvg = '<svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="4 6 7 9 4 12"/><line x1="9" y1="12" x2="13" y2="12"/></svg>';
+
+// Setup panel header
+const panelHeader = document.getElementById('panel-header')!;
+panelHeader.innerHTML = `<span id="panel-header-title">Terminals</span><button id="panel-close-all" title="Close all">&times; All</button>`;
+document.getElementById('panel-close-all')!.addEventListener('click', () => {
+  const ids = getAllTiles().map(t => t.id);
+  for (const id of ids) destroyTile(id);
+});
+
+function focusCameraOnTile(tile: ReturnType<typeof getTile>): void {
+  if (!tile) return;
+  const targetCamX = tile.x + tile.width / 2 - container.clientWidth / 2 / camera.zoom;
+  const targetCamY = tile.y + tile.height / 2 - container.clientHeight / 2 / camera.zoom;
+
+  const startX = camera.x;
+  const startY = camera.y;
+  const duration = 300;
+  const startTime = performance.now();
+
+  function animatePan(now: number) {
+    const t = Math.min(1, (now - startTime) / duration);
+    const ease = 1 - Math.pow(1 - t, 3);
+    camera.x = startX + (targetCamX - startX) * ease;
+    camera.y = startY + (targetCamY - startY) * ease;
+    updateCanvas();
+    if (t < 1) requestAnimationFrame(animatePan);
+    else updatePanel();
+  }
+  requestAnimationFrame(animatePan);
+}
+
 function updatePanel(): void {
   const tiles = getAllTiles();
   panelList.innerHTML = '';
@@ -52,41 +84,30 @@ function updatePanel(): void {
 
     const icon = document.createElement('span');
     icon.className = 'panel-item-icon';
-    icon.textContent = '>';
+    icon.innerHTML = terminalSvg;
 
     const label = document.createElement('span');
     label.className = 'panel-item-label';
     label.textContent = `Terminal ${index + 1}`;
 
+    const closeBtn = document.createElement('button');
+    closeBtn.className = 'panel-item-close';
+    closeBtn.innerHTML = '&times;';
+    closeBtn.title = 'Close';
+    closeBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      destroyTile(tile.id);
+    });
+
     item.appendChild(icon);
     item.appendChild(label);
+    item.appendChild(closeBtn);
 
-    // Click → focus camera on this tile
     item.addEventListener('click', () => {
       clearSelection();
       selectTile(tile.id);
       bringToFront(tile);
-
-      // Animate camera to center on this tile
-      const targetCamX = tile.x + tile.width / 2 - container.clientWidth / 2 / camera.zoom;
-      const targetCamY = tile.y + tile.height / 2 - container.clientHeight / 2 / camera.zoom;
-
-      // Smooth pan animation
-      const startX = camera.x;
-      const startY = camera.y;
-      const duration = 300;
-      const startTime = performance.now();
-
-      function animatePan(now: number) {
-        const t = Math.min(1, (now - startTime) / duration);
-        const ease = 1 - Math.pow(1 - t, 3); // ease-out cubic
-        camera.x = startX + (targetCamX - startX) * ease;
-        camera.y = startY + (targetCamY - startY) * ease;
-        updateCanvas();
-        updatePanel();
-        if (t < 1) requestAnimationFrame(animatePan);
-      }
-      requestAnimationFrame(animatePan);
+      focusCameraOnTile(tile);
     });
 
     panelList.appendChild(item);
@@ -148,27 +169,59 @@ function destroyTile(id: string): void {
 }
 
 // ── Smart Duplicate ──
-// Cursor in horizontal zone of tile → place to the right (same row)
-// Cursor below tile → place below (next row)
+// Row-aware: if placing right → stay on source row (align to row's first tile Y)
+// If placing below → start new row (align X to row's first tile)
 
-function smartDuplicate(sourceTile: typeof getAllTiles extends () => (infer T)[] ? T : never): void {
+function smartDuplicate(sourceTile: ReturnType<typeof getTile>): void {
+  if (!sourceTile) return;
   const GAP = 40;
   const rect = container.getBoundingClientRect();
   const mouseScreenY = lastMouseY - rect.top;
-
-  // Convert tile bottom edge to screen Y
   const tileBottomScreen = camera.worldToScreen(sourceTile.x, sourceTile.y + sourceTile.height).sy;
+
+  // Find all tiles on the same row (same Y coordinate within tolerance)
+  const ROW_TOLERANCE = 20;
+  const allTiles = getAllTiles();
+  const rowTiles = allTiles.filter(t =>
+    Math.abs(t.y - sourceTile.y) < ROW_TOLERANCE
+  ).sort((a, b) => a.x - b.x);
+
+  // Find the rightmost tile in this row
+  const rightmostInRow = rowTiles[rowTiles.length - 1];
+  // Find the first tile in this row (for column alignment)
+  const firstInRow = rowTiles[0];
 
   let newX: number;
   let newY: number;
 
   if (mouseScreenY > tileBottomScreen) {
-    // Mouse below tile → place below (next row)
-    newX = sourceTile.x;
-    newY = sourceTile.y + sourceTile.height + GAP;
+    // Mouse below tile → place on next row, aligned to first tile's X
+    // Find existing rows below this one
+    const rowY = sourceTile.y;
+    const belowRows = allTiles
+      .map(t => t.y)
+      .filter(y => y > rowY + ROW_TOLERANCE)
+      .sort((a, b) => a - b);
+
+    if (belowRows.length > 0) {
+      // There are rows below — find rightmost tile in the LAST row
+      const lastRowY = belowRows[belowRows.length - 1];
+      const lastRowTiles = allTiles.filter(t =>
+        Math.abs(t.y - lastRowY) < ROW_TOLERANCE
+      ).sort((a, b) => a.x - b.x);
+      const lastInLastRow = lastRowTiles[lastRowTiles.length - 1];
+
+      // Place to the right of the last tile in the bottom-most row
+      newX = lastInLastRow.x + lastInLastRow.width + GAP;
+      newY = lastRowY;
+    } else {
+      // No rows below — create new row
+      newX = firstInRow ? firstInRow.x : sourceTile.x;
+      newY = sourceTile.y + sourceTile.height + GAP;
+    }
   } else {
-    // Mouse horizontal with tile → place to the right (same row)
-    newX = sourceTile.x + sourceTile.width + GAP;
+    // Mouse horizontal → place to the right of rightmost in row
+    newX = rightmostInRow.x + rightmostInRow.width + GAP;
     newY = sourceTile.y;
   }
 

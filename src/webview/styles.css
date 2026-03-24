@@ -40,8 +40,8 @@ html, body {
 /* ── Side Panel ── */
 
 #side-panel {
-  width: 200px;
-  min-width: 200px;
+  width: 160px;
+  min-width: 160px;
   height: 100%;
   background: var(--vscode-sideBar-background, #252526);
   border-left: 1px solid var(--vscode-sideBar-border, rgba(255,255,255,0.1));
@@ -59,6 +59,29 @@ html, body {
   color: var(--vscode-sideBarSectionHeader-foreground, #bbbbbb);
   background: var(--vscode-sideBarSectionHeader-background, transparent);
   border-bottom: 1px solid var(--vscode-sideBar-border, rgba(255,255,255,0.1));
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+#panel-header-title {
+  flex: 1;
+}
+
+#panel-close-all {
+  background: none;
+  border: none;
+  color: var(--vscode-sideBarSectionHeader-foreground, #999);
+  font-size: 10px;
+  cursor: pointer;
+  padding: 2px 6px;
+  border-radius: 3px;
+  opacity: 0.6;
+}
+
+#panel-close-all:hover {
+  opacity: 1;
+  background: var(--vscode-toolbar-hoverBackground, rgba(255,255,255,0.1));
 }
 
 #panel-list {
@@ -100,6 +123,29 @@ html, body {
   text-overflow: ellipsis;
   white-space: nowrap;
   font-family: var(--vscode-editor-font-family, monospace);
+}
+
+.panel-item-close {
+  background: none;
+  border: none;
+  color: var(--vscode-sideBar-foreground, #999);
+  font-size: 14px;
+  cursor: pointer;
+  padding: 0 2px;
+  margin-left: 4px;
+  border-radius: 3px;
+  opacity: 0;
+  transition: opacity 0.1s;
+  line-height: 1;
+}
+
+.panel-item:hover .panel-item-close {
+  opacity: 0.6;
+}
+
+.panel-item-close:hover {
+  opacity: 1 !important;
+  background: var(--vscode-toolbar-hoverBackground, rgba(255,255,255,0.1));
 }
 
 #grid-canvas {

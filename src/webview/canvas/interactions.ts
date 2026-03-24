@@ -1,7 +1,7 @@
 // Canvas interactions: pan, zoom, tile drag, tile resize, selection
 
 import {
-  Tile, camera, viewport, ZOOM_MIN, ZOOM_MAX, GRID_CELL,
+  Tile, camera, viewport, ZOOM_MIN, ZOOM_MAX, GRID_CELL, setZooming,
   getAllTiles, bringToFront, snapToGrid,
   selectTile, deselectTile, clearSelection, toggleSelection,
   isSelected, getSelectedTiles, MIN_TILE_WIDTH, MIN_TILE_HEIGHT,
@@ -101,6 +101,7 @@ export function initInteractions(
       }
 
       camera.zoomToward(mx, my, camera.zoom * factor);
+      setZooming(); // lock terminal refit during zoom
       lastZoomFocalX = mx;
       lastZoomFocalY = my;
 

@@ -124,7 +124,7 @@ function getWebviewContent(webview: vscode.Webview, extensionPath: string, initi
       <div id="zoom-indicator"></div>
     </div>
     <div id="side-panel">
-      <div id="panel-header">Terminals</div>
+      <div id="panel-header"></div>
       <div id="panel-list"></div>
     </div>
   </div>
