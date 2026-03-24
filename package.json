@@ -39,7 +39,8 @@
       "editor/title": [
         {
           "command": "termvas.open",
-          "group": "navigation"
+          "group": "navigation@0",
+          "when": "true"
         }
       ]
     }
