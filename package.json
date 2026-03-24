@@ -9,7 +9,10 @@
     "vscode": "^1.85.0"
   },
   "categories": ["Other"],
-  "activationEvents": [],
+  "activationEvents": [
+    "onCommand:termvas.open",
+    "onCommand:termvas.restart"
+  ],
   "main": "./dist/extension.js",
   "contributes": {
     "commands": [
@@ -49,6 +52,8 @@
   "scripts": {
     "build": "node esbuild.mjs",
     "watch": "node esbuild.mjs --watch",
+    "install-ext": "ln -sfn \"$(pwd)\" \"$HOME/.vscode-insiders/extensions/termvas\" && echo 'Installed! Reload VSCode (Ctrl+Shift+P → Reload Window).'",
+    "uninstall-ext": "rm -f \"$HOME/.vscode-insiders/extensions/termvas\" && echo 'Removed.'",
     "package": "vsce package"
   },
   "devDependencies": {
