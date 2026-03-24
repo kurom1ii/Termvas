@@ -48,6 +48,12 @@
           "command": "termvas.open",
           "group": "3_preview"
         }
+      ],
+      "EmptyEditorGroupContext": [
+        {
+          "command": "termvas.open",
+          "group": "navigation"
+        }
       ]
     }
   },
