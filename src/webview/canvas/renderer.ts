@@ -100,13 +100,10 @@ export function positionTile(dom: TileDom, tile: Tile): void {
   const sx = tile.x * viewport.zoom + viewport.panX;
   const sy = tile.y * viewport.zoom + viewport.panY;
 
-  // Tile size: never shrink below original size (zoom < 1), only grow when zoom > 1
-  const sizeZoom = Math.max(1.0, viewport.zoom);
-
   dom.container.style.left = `${sx}px`;
   dom.container.style.top = `${sy}px`;
-  dom.container.style.width = `${tile.width * sizeZoom}px`;
-  dom.container.style.height = `${tile.height * sizeZoom}px`;
+  dom.container.style.width = `${tile.width * viewport.zoom}px`;
+  dom.container.style.height = `${tile.height * viewport.zoom}px`;
   dom.container.style.zIndex = String(tile.zIndex);
 
   // Selection highlight
