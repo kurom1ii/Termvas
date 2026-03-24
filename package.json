@@ -49,7 +49,7 @@
           "group": "3_preview"
         }
       ],
-      "EmptyEditorGroupContext": [
+      "EditorTabsBarContext": [
         {
           "command": "termvas.open",
           "group": "navigation"
