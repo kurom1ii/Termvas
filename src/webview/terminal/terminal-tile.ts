@@ -5,6 +5,7 @@ import { FitAddon } from '@xterm/addon-fit';
 import { WebglAddon } from '@xterm/addon-webgl';
 import { Unicode11Addon } from '@xterm/addon-unicode11';
 import { getThemeFromVSCode } from './theme';
+import { getIsPanning } from '../canvas/interactions';
 
 // VS Code-style data buffering interval (5ms)
 const DATA_BUFFER_FLUSH_MS = 5;
@@ -96,15 +97,17 @@ export function createTerminal(sessionId: string, contentArea: HTMLElement): Ter
     e.stopPropagation();
   }, { passive: true });
 
-  // Click inside content → focus terminal
+  // Click inside content → focus terminal (skip during pan/Ctrl)
   contentArea.addEventListener('mousedown', (e) => {
-    // Don't focus during middle-click (canvas pan)
     if (e.button === 1) return;
+    if (e.ctrlKey || e.metaKey) return; // Ctrl+click = pan, not focus
+    if (getIsPanning()) return;
     term.focus();
   });
 
-  // Hover into terminal → focus (keyboard input goes to terminal)
+  // Hover into terminal → focus (skip during pan)
   contentArea.addEventListener('mouseenter', () => {
+    if (getIsPanning()) return;
     term.focus();
   });
 

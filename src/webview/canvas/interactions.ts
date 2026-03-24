@@ -9,6 +9,10 @@ import {
 import { positionTile, positionAllTiles, getAllTileDoms, getTileDom } from './renderer';
 import { drawGrid, resizeCanvas } from './grid';
 
+// Exported so terminal-tile can check if panning
+let _isPanning = false;
+export function getIsPanning(): boolean { return _isPanning; }
+
 let zoomIndicatorTimer: number | undefined;
 let zoomSnapTimer: number | undefined;
 let zoomSnapRaf: number | undefined;
@@ -117,23 +121,21 @@ export function initInteractions(
     updateCanvas();
   }, { passive: false });
 
-  // ── Middle-click drag to pan ──
-  let isPanning = false;
+  // ── Pan: middle-click drag OR Ctrl+left-drag ──
 
-  container.addEventListener('mousedown', (e) => {
-    if (e.button !== 1) return;
+  function startPan(e: MouseEvent) {
     e.preventDefault();
-
     if (document.activeElement instanceof HTMLElement) {
       document.activeElement.blur();
     }
 
-    isPanning = true;
+    _isPanning = true;
     let lastX = e.clientX;
     let lastY = e.clientY;
 
     container.style.cursor = 'grabbing';
 
+    // Block ALL pointer events on tile contents during pan
     const allDoms = getAllTileDoms();
     allDoms.forEach(dom => {
       dom.contentArea.style.pointerEvents = 'none';
@@ -151,7 +153,7 @@ export function initInteractions(
       document.removeEventListener('mousemove', onMove);
       document.removeEventListener('mouseup', onUp);
       container.style.cursor = '';
-      isPanning = false;
+      _isPanning = false;
       allDoms.forEach(dom => {
         dom.contentArea.style.pointerEvents = '';
       });
@@ -159,6 +161,40 @@ export function initInteractions(
 
     document.addEventListener('mousemove', onMove);
     document.addEventListener('mouseup', onUp);
+  }
+
+  // Middle-click pan
+  container.addEventListener('mousedown', (e) => {
+    if (e.button === 1) startPan(e);
+  });
+
+  // Ctrl+left-drag pan (only starts on drag, not click)
+  container.addEventListener('mousedown', (e) => {
+    if (e.button !== 0 || !(e.ctrlKey || e.metaKey)) return;
+    e.preventDefault();
+
+    const startX = e.clientX;
+    const startY = e.clientY;
+    let dragging = false;
+
+    function onFirstMove(ev: MouseEvent) {
+      if (Math.hypot(ev.clientX - startX, ev.clientY - startY) > 3) {
+        // Threshold reached — enter pan mode
+        document.removeEventListener('mousemove', onFirstMove);
+        document.removeEventListener('mouseup', onFirstUp);
+        dragging = true;
+        startPan(ev);
+      }
+    }
+
+    function onFirstUp() {
+      // Released without dragging — do nothing (Ctrl+click = no action)
+      document.removeEventListener('mousemove', onFirstMove);
+      document.removeEventListener('mouseup', onFirstUp);
+    }
+
+    document.addEventListener('mousemove', onFirstMove);
+    document.addEventListener('mouseup', onFirstUp);
   });
 
   // ── Double-click: new terminal ──
@@ -216,7 +252,7 @@ export function initInteractions(
   resizeObserver.observe(container);
 
   // ── Marquee selection ──
-  initMarquee(container, tilesLayer, marqueeEl, () => isPanning);
+  initMarquee(container, tilesLayer, marqueeEl, () => _isPanning);
 }
 
 export function attachTileDrag(
