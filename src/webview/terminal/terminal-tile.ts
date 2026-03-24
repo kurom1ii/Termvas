@@ -86,16 +86,11 @@ export function createTerminal(sessionId: string, contentArea: HTMLElement): Ter
 
   // ── Focus lock: scroll/input isolation ──
 
-  // Wheel events: Ctrl+wheel → let bubble to canvas for zoom
-  // Normal scroll → stop propagation, xterm handles scrollback
+  // Wheel: Ctrl+wheel always bubbles to canvas for zoom (even when terminal focused)
+  // Normal scroll stays in terminal
   contentArea.addEventListener('wheel', (e) => {
-    if (e.ctrlKey || e.metaKey) {
-      // Zoom: blur terminal and let event bubble to canvas
-      term.blur();
-      return;
-    }
-    // Normal scroll: keep in terminal, don't pan canvas
-    e.stopPropagation();
+    if (e.ctrlKey || e.metaKey) return; // let bubble → canvas zoom
+    e.stopPropagation(); // keep in terminal
   }, { passive: true });
 
   // Click inside content → focus terminal (skip during pan/Ctrl)

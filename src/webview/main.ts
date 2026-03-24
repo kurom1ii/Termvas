@@ -59,7 +59,7 @@ function focusCameraOnTile(tile: ReturnType<typeof getTile>): void {
 
   const startX = camera.x;
   const startY = camera.y;
-  const duration = 150;
+  const duration = 50;
   const startTime = performance.now();
 
   function animatePan(now: number) {
