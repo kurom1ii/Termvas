@@ -114,6 +114,31 @@ function updatePanel(): void {
   });
 }
 
+// Scroll on panel list → cycle through terminals
+let panelScrollAccum = 0;
+panelList.addEventListener('wheel', (e) => {
+  e.preventDefault();
+  e.stopPropagation();
+  panelScrollAccum += e.deltaY;
+  if (Math.abs(panelScrollAccum) < 50) return; // threshold
+  const direction = panelScrollAccum > 0 ? 1 : -1;
+  panelScrollAccum = 0;
+
+  const tiles = getAllTiles();
+  if (tiles.length === 0) return;
+
+  // Find currently selected index
+  let currentIdx = tiles.findIndex(t => isSelected(t.id));
+  if (currentIdx === -1) currentIdx = 0;
+
+  const nextIdx = Math.max(0, Math.min(tiles.length - 1, currentIdx + direction));
+  const tile = tiles[nextIdx];
+  clearSelection();
+  selectTile(tile.id);
+  bringToFront(tile);
+  focusCameraOnTile(tile);
+}, { passive: false });
+
 // ── Tile Creation ──
 
 function createTerminalTile(canvasX: number, canvasY: number, cwd?: string): void {

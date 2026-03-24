@@ -96,19 +96,14 @@ export function initInteractions(
   }
 ): void {
 
-  // ── Zoom: Ctrl+wheel ──
+  // ── Zoom: Ctrl+wheel (match collab-vscode — no pointer-events manipulation) ──
   container.addEventListener('wheel', (e) => {
     const t = e.target as HTMLElement;
-    // Normal scroll over terminal → xterm handles it
     if (t.closest('.tile-content') && !(e.ctrlKey || e.metaKey)) return;
 
     e.preventDefault();
 
     if (e.ctrlKey || e.metaKey) {
-      // Blur any terminal first
-      if (document.activeElement instanceof HTMLElement) document.activeElement.blur();
-      disableAllTilePointers();
-
       if (zoomSnapRaf) { cancelAnimationFrame(zoomSnapRaf); zoomSnapRaf = undefined; }
       clearTimeout(zoomSnapTimer);
 
@@ -129,18 +124,13 @@ export function initInteractions(
         zoomSnapTimer = window.setTimeout(() => snapBackZoom(zoomIndicator), 150);
       }
       showZoomIndicator(zoomIndicator);
-
-      // Re-enable pointers + unblock refit after zoom settles
-      clearTimeout(zoomReenableTimer);
-      zoomReenableTimer = window.setTimeout(enableAllTilePointers, 200);
     } else {
-      camera.panByScreen(-e.deltaX, -e.deltaY);
+      // Pan — 1.2x multiplier (match collab-vscode)
+      camera.panByScreen(-e.deltaX * 1.2, -e.deltaY * 1.2);
     }
 
     update();
   }, { passive: false });
-
-  let zoomReenableTimer: number | undefined;
 
   // ── Middle-click pan ──
   container.addEventListener('mousedown', (e) => {
