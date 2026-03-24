@@ -35,13 +35,7 @@
           "when": "explorerResourceIsFolder"
         }
       ],
-      "editor/context": [
-        {
-          "command": "termvas.open",
-          "group": "z_commands"
-        }
-      ],
-      "editor/title/context": [
+      "editorTabBar/context": [
         {
           "command": "termvas.open",
           "group": "1_termvas"
