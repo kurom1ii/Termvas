@@ -84,14 +84,9 @@ export function createTerminal(sessionId: string, contentArea: HTMLElement): Ter
     });
   });
 
-  // ── Focus lock: scroll/input isolation ──
-
-  // Wheel: Ctrl+wheel always bubbles to canvas for zoom (even when terminal focused)
-  // Normal scroll stays in terminal
-  contentArea.addEventListener('wheel', (e) => {
-    if (e.ctrlKey || e.metaKey) return; // let bubble → canvas zoom
-    e.stopPropagation(); // keep in terminal
-  }, { passive: true });
+  // ── Focus lock: input isolation ──
+  // No wheel handler needed — canvas captures Ctrl+wheel in capture phase,
+  // normal scroll handled by xterm natively, canvas pan skips tile-content.
 
   // Click inside content → focus terminal (skip during pan/Ctrl)
   contentArea.addEventListener('mousedown', (e) => {

@@ -99,8 +99,7 @@ export function initInteractions(
   // ── Ctrl+wheel zoom — capture phase so it fires BEFORE xterm catches wheel ──
   container.addEventListener('wheel', (e) => {
     if (e.ctrlKey || e.metaKey) {
-      e.preventDefault();
-      e.stopPropagation(); // prevent xterm from also handling this
+      e.preventDefault(); // prevent browser zoom, let xterm ignore Ctrl+wheel naturally
 
       if (zoomSnapRaf) { cancelAnimationFrame(zoomSnapRaf); zoomSnapRaf = undefined; }
       clearTimeout(zoomSnapTimer);
