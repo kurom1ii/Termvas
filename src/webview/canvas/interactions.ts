@@ -96,14 +96,12 @@ export function initInteractions(
   }
 ): void {
 
-  // ── Zoom: Ctrl+wheel (match collab-vscode — no pointer-events manipulation) ──
+  // ── Ctrl+wheel zoom — capture phase so it fires BEFORE xterm catches wheel ──
   container.addEventListener('wheel', (e) => {
-    const t = e.target as HTMLElement;
-    if (t.closest('.tile-content') && !(e.ctrlKey || e.metaKey)) return;
-
-    e.preventDefault();
-
     if (e.ctrlKey || e.metaKey) {
+      e.preventDefault();
+      e.stopPropagation(); // prevent xterm from also handling this
+
       if (zoomSnapRaf) { cancelAnimationFrame(zoomSnapRaf); zoomSnapRaf = undefined; }
       clearTimeout(zoomSnapTimer);
 
@@ -124,11 +122,18 @@ export function initInteractions(
         zoomSnapTimer = window.setTimeout(() => snapBackZoom(zoomIndicator), 150);
       }
       showZoomIndicator(zoomIndicator);
-    } else {
-      // Pan — 1.2x multiplier (match collab-vscode)
-      camera.panByScreen(-e.deltaX * 1.2, -e.deltaY * 1.2);
+      update();
     }
+  }, { capture: true, passive: false }); // capture phase!
 
+  // ── Normal scroll/pan — bubble phase (skip if over terminal) ──
+  container.addEventListener('wheel', (e) => {
+    if (e.ctrlKey || e.metaKey) return; // handled by capture
+    const t = e.target as HTMLElement;
+    if (t.closest('.tile-content')) return; // let xterm scroll
+
+    e.preventDefault();
+    camera.panByScreen(-e.deltaX * 1.2, -e.deltaY * 1.2);
     update();
   }, { passive: false });
 
