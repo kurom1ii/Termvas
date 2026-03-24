@@ -1,7 +1,7 @@
 // Canvas interactions: pan, zoom, tile drag, tile resize
 
 import {
-  Tile, camera, ZOOM_MIN, ZOOM_MAX, GRID_CELL,
+  Tile, camera, ZOOM_MIN, ZOOM_MAX, GRID_CELL, markZoom, clearZoom,
   getAllTiles, bringToFront, snapToGrid,
   selectTile, clearSelection, toggleSelection,
   isSelected, getSelectedTiles, MIN_TILE_WIDTH, MIN_TILE_HEIGHT,
@@ -93,6 +93,7 @@ export function initInteractions(
   callbacks: {
     onCreateTile: (canvasX: number, canvasY: number) => void;
     onTileResized: (id: string) => void;
+    onZoomEnd: () => void;
   }
 ): void {
 
@@ -123,6 +124,7 @@ export function initInteractions(
       }
 
       camera.zoomToward(mx, my, camera.zoom * factor);
+      markZoom(); // block terminal refit
       lastZoomFocalX = mx; lastZoomFocalY = my;
 
       if (camera.zoom > ZOOM_MAX || camera.zoom < ZOOM_MIN) {
@@ -130,9 +132,13 @@ export function initInteractions(
       }
       showZoomIndicator(zoomIndicator);
 
-      // Re-enable after a short delay
+      // Re-enable pointers + unblock refit after zoom settles
       clearTimeout(zoomReenableTimer);
-      zoomReenableTimer = window.setTimeout(enableAllTilePointers, 200);
+      zoomReenableTimer = window.setTimeout(() => {
+        enableAllTilePointers();
+        clearZoom();
+        callbacks.onZoomEnd();
+      }, 200);
     } else {
       camera.panByScreen(-e.deltaX, -e.deltaY);
     }

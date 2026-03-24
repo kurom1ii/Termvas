@@ -6,6 +6,7 @@ import { WebglAddon } from '@xterm/addon-webgl';
 import { Unicode11Addon } from '@xterm/addon-unicode11';
 import { getThemeFromVSCode } from './theme';
 import { getIsPanning } from '../canvas/interactions';
+import { zoomActive } from '../canvas/state';
 
 // VS Code-style data buffering interval (5ms)
 const DATA_BUFFER_FLUSH_MS = 5;
@@ -128,13 +129,16 @@ export function createTerminal(sessionId: string, contentArea: HTMLElement): Ter
     vscodeApi.postMessage({ type: 'pty-resize', id: sessionId, cols, rows });
   });
 
-  // ResizeObserver for auto-fit
+  // ResizeObserver — skip fit during zoom (just a boolean check, zero overhead)
   let resizeTimer: number | undefined;
   const resizeObserver = new ResizeObserver((entries) => {
+    if (zoomActive) return;
     const { width, height } = entries[0].contentRect;
     if (width > 0 && height > 0) {
       clearTimeout(resizeTimer);
-      resizeTimer = window.setTimeout(() => fit.fit(), 100);
+      resizeTimer = window.setTimeout(() => {
+        if (!zoomActive) fit.fit();
+      }, 100);
     }
   });
   resizeObserver.observe(contentArea);
