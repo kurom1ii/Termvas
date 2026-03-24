@@ -88,15 +88,23 @@ export function createTerminal(sessionId: string, contentArea: HTMLElement): Ter
     e.stopPropagation();
   }, { passive: true });
 
-  // Hover into terminal → auto-focus so keyboard input goes to terminal
+  // Hover into terminal content → auto-focus so keyboard input goes to terminal
   contentArea.addEventListener('mouseenter', () => {
     term.focus();
   });
 
-  // Hover out of terminal → blur so canvas can receive input again
-  contentArea.addEventListener('mouseleave', () => {
-    term.blur();
+  // Also focus on any click inside content area
+  contentArea.addEventListener('mousedown', () => {
+    term.focus();
   });
+
+  // Hover out of the entire tile container → blur terminal
+  const tileContainer = contentArea.parentElement;
+  if (tileContainer) {
+    tileContainer.addEventListener('mouseleave', () => {
+      term.blur();
+    });
+  }
 
   // User input → PTY
   const onDataDisposable = term.onData((data: string) => {

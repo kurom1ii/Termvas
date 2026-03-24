@@ -30,7 +30,7 @@ export function activate(context: vscode.ExtensionContext) {
       }
     );
 
-    ptyManager = new PtyManager(panel);
+    ptyManager = new PtyManager(panel, context.extensionPath);
 
     panel.webview.html = getWebviewContent(panel.webview, context.extensionPath);
 

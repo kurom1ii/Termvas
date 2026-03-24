@@ -1,5 +1,6 @@
 import * as vscode from 'vscode';
 import * as os from 'os';
+import * as path from 'path';
 import { execSync } from 'child_process';
 
 // node-pty is loaded dynamically to handle missing native module gracefully
@@ -13,15 +14,17 @@ try {
 interface Session {
   process: import('node-pty').IPty;
   disposables: import('node-pty').IDisposable[];
-  tmuxSession: string; // tmux session name for cleanup
+  tmuxSession: string;
 }
 
 export class PtyManager {
   private sessions = new Map<string, Session>();
   private panel: vscode.WebviewPanel;
+  private extensionPath: string;
 
-  constructor(panel: vscode.WebviewPanel) {
+  constructor(panel: vscode.WebviewPanel, extensionPath: string) {
     this.panel = panel;
+    this.extensionPath = extensionPath;
   }
 
   createSession(id: string, cwd?: string): void {
@@ -45,14 +48,13 @@ export class PtyManager {
     env.TERM = 'xterm-kitty';
     env.COLORTERM = 'truecolor';
 
-    // Sanitize session name for tmux (alphanumeric + dash only)
     const tmuxSession = 'tv-' + id.replace(/[^a-zA-Z0-9-]/g, '').slice(0, 32);
+    const tmuxConf = path.join(this.extensionPath, 'resources', 'tmux.conf');
 
-    // Spawn tmux new-session running fish shell
-    // -d = detached initially (we attach immediately via the pty itself)
-    // Using tmux ensures session persistence and multiplexing
     const proc = pty.spawn('tmux', [
-      'new-session', '-s', tmuxSession, '-x', '80', '-y', '24', 'fish',
+      '-f', tmuxConf,
+      'new-session', '-s', tmuxSession, '-x', '80', '-y', '24',
+      'fish',
     ], {
       name: 'xterm-kitty',
       cols: 80,
@@ -96,10 +98,7 @@ export class PtyManager {
     const session = this.sessions.get(id);
     if (!session) return;
     for (const d of session.disposables) d.dispose();
-
-    // Kill tmux session first
     this.cleanupTmuxSession(session.tmuxSession);
-
     try {
       session.process.kill();
     } catch {
