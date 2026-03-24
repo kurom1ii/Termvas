@@ -4,7 +4,7 @@ import { initGrid, drawGrid, resizeCanvas } from './canvas/grid';
 import {
   camera, viewport, getAllTiles, addTile, removeTile, getTile,
   generateId, bringToFront, snapToGrid, selectTile, clearSelection, isSelected,
-  DEFAULT_TILE_WIDTH, DEFAULT_TILE_HEIGHT, GRID_CELL,
+  DEFAULT_TILE_WIDTH, DEFAULT_TILE_HEIGHT, GRID_CELL, setOnZoomEnd,
 } from './canvas/state';
 import { createTileDOM, removeTileDOM, positionAllTiles, positionTile, getTileDom } from './canvas/renderer';
 import { initInteractions, attachTileDrag, attachTileResize } from './canvas/interactions';
@@ -33,6 +33,11 @@ document.addEventListener('mousemove', (e) => {
 // Initialize canvas grid
 initGrid(container, gridCanvas);
 drawGrid();
+
+// When zoom ends, re-render tiles at crisp pixel dimensions
+setOnZoomEnd(() => {
+  positionAllTiles(getAllTiles());
+});
 
 // Update function
 function updateCanvas(): void {

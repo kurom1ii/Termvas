@@ -1,6 +1,6 @@
 // Tile DOM creation and positioning
 
-import { Tile, camera, bringToFront, isSelected } from './state';
+import { Tile, camera, isZooming, bringToFront, isSelected } from './state';
 
 export interface TileDom {
   container: HTMLElement;
@@ -98,15 +98,31 @@ export function removeTileDOM(id: string): void {
 
 export function positionTile(dom: TileDom, tile: Tile): void {
   const { sx, sy } = camera.worldToScreen(tile.x, tile.y);
-
-  // Collaborator-style: world-space dimensions + CSS transform for visual scale
-  // ResizeObserver sees constant world-space size → terminal never refits during zoom
   dom.container.style.left = `${sx}px`;
   dom.container.style.top = `${sy}px`;
-  dom.container.style.width = `${tile.width * camera.zoom}px`;
-  dom.container.style.height = `${tile.height * camera.zoom}px`;
-  dom.container.style.transform = '';
   dom.container.style.zIndex = String(tile.zIndex);
+
+  if (isZooming) {
+    // During zoom: CSS transform (fast, no relayout, no terminal refit)
+    // Store base size on first zoom frame
+    if (!dom.container.dataset.baseW) {
+      dom.container.dataset.baseW = dom.container.style.width;
+      dom.container.dataset.baseH = dom.container.style.height;
+      dom.container.dataset.baseZoom = String(camera.zoom);
+    }
+    const baseZoom = parseFloat(dom.container.dataset.baseZoom!);
+    const relativeScale = camera.zoom / baseZoom;
+    dom.container.style.transform = `scale(${relativeScale})`;
+    dom.container.style.transformOrigin = 'top left';
+  } else {
+    // Settled: actual pixel dimensions (crisp, one-time relayout)
+    dom.container.style.width = `${tile.width * camera.zoom}px`;
+    dom.container.style.height = `${tile.height * camera.zoom}px`;
+    dom.container.style.transform = '';
+    delete dom.container.dataset.baseW;
+    delete dom.container.dataset.baseH;
+    delete dom.container.dataset.baseZoom;
+  }
 
   // Selection highlight
   if (isSelected(tile.id)) {

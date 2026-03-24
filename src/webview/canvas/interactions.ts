@@ -119,6 +119,8 @@ export function initInteractions(
   }, { passive: false });
 
   // ── Middle-click OR Ctrl+left-click drag to pan ──
+  // Ctrl+left: stay in pan mode while Ctrl held, even after mouse release.
+  // Only exit when BOTH Ctrl and mouse are released.
   container.addEventListener('mousedown', (e) => {
     const isMiddle = e.button === 1;
     const isCtrlLeft = e.button === 0 && (e.ctrlKey || e.metaKey);
@@ -129,10 +131,8 @@ export function initInteractions(
       document.activeElement.blur();
     }
 
-    const startMX = e.clientX;
-    const startMY = e.clientY;
-    const startCamX = camera.x;
-    const startCamY = camera.y;
+    let lastX = e.clientX;
+    let lastY = e.clientY;
 
     container.style.cursor = 'grabbing';
 
@@ -141,25 +141,48 @@ export function initInteractions(
       dom.contentArea.style.pointerEvents = 'none';
     });
 
+    let mouseDown = true;
+
     function onMove(ev: MouseEvent) {
-      const dsx = ev.clientX - startMX;
-      const dsy = ev.clientY - startMY;
-      camera.x = startCamX - dsx / camera.zoom;
-      camera.y = startCamY - dsy / camera.zoom;
+      const dx = ev.clientX - lastX;
+      const dy = ev.clientY - lastY;
+      lastX = ev.clientX;
+      lastY = ev.clientY;
+      camera.x -= dx / camera.zoom;
+      camera.y -= dy / camera.zoom;
       updateCanvas();
     }
 
-    function onUp() {
+    function cleanup() {
       document.removeEventListener('mousemove', onMove);
-      document.removeEventListener('mouseup', onUp);
+      document.removeEventListener('mouseup', onMouseUp);
+      document.removeEventListener('keyup', onKeyUp);
       container.style.cursor = '';
       allDoms.forEach(dom => {
         dom.contentArea.style.pointerEvents = '';
       });
     }
 
+    function onMouseUp() {
+      mouseDown = false;
+      if (isMiddle) {
+        // Middle-click: release immediately on mouseup
+        cleanup();
+      }
+      // Ctrl+left: keep pan mode until Ctrl released
+    }
+
+    function onKeyUp(ev: KeyboardEvent) {
+      if (ev.key === 'Control' || ev.key === 'Meta') {
+        if (!mouseDown) cleanup();
+      }
+    }
+
     document.addEventListener('mousemove', onMove);
-    document.addEventListener('mouseup', onUp);
+    document.addEventListener('mouseup', onMouseUp);
+    if (isCtrlLeft) {
+      document.addEventListener('keyup', onKeyUp);
+    }
   });
 
   // ── Double-click: new terminal ──
