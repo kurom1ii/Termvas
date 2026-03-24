@@ -91,7 +91,23 @@ export function activate(context: vscode.ExtensionContext) {
     openCanvas(cwd);
   });
 
-  context.subscriptions.push(cmd, cmdHere);
+  // Command: restart extension — destroy everything and reload fresh
+  const cmdRestart = vscode.commands.registerCommand('termvas.restart', async () => {
+    // Destroy current panel and all PTY sessions
+    if (panel) {
+      ptyManager?.destroyAll();
+      panel.dispose(); // triggers onDidDispose which clears panel + ptyManager
+    }
+
+    // Small delay to let cleanup finish
+    await new Promise(resolve => setTimeout(resolve, 200));
+
+    // Re-open fresh canvas
+    openCanvas();
+    vscode.window.showInformationMessage('Termvas restarted.');
+  });
+
+  context.subscriptions.push(cmd, cmdHere, cmdRestart);
 }
 
 function getWebviewContent(webview: vscode.Webview, extensionPath: string): string {

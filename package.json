@@ -22,6 +22,11 @@
         "command": "termvas.openHere",
         "title": "New Termvas",
         "category": "Termvas"
+      },
+      {
+        "command": "termvas.restart",
+        "title": "Termvas: Restart Extension",
+        "category": "Termvas"
       }
     ],
     "menus": {
