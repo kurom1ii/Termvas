@@ -137,14 +137,12 @@ window.addEventListener('message', (event) => {
   }
 });
 
-// Create initial terminal tile at center
+// Create initial terminal tile at center, using initial cwd if provided
 requestAnimationFrame(() => {
   const cx = container.clientWidth / 2 - DEFAULT_TILE_WIDTH / 2;
   const cy = container.clientHeight / 2 - DEFAULT_TILE_HEIGHT / 2;
   const canvasX = (cx - viewport.panX) / viewport.zoom;
   const canvasY = (cy - viewport.panY) / viewport.zoom;
-  createTerminalTile(canvasX, canvasY);
-
-  // Notify extension host that webview is ready
-  vscode.postMessage({ type: 'webview-ready' });
+  const initialCwd = container.dataset.initialCwd || undefined;
+  createTerminalTile(canvasX, canvasY, initialCwd);
 });

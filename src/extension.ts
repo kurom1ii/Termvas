@@ -10,7 +10,7 @@ export function activate(context: vscode.ExtensionContext) {
   function openCanvas(cwd?: string) {
     if (panel) {
       panel.reveal();
-      // If a cwd was provided, tell the webview to create a new terminal tile with that cwd
+      // If a cwd was provided and panel already exists, create a new tile
       if (cwd) {
         panel.webview.postMessage({ type: 'create-tile', cwd });
       }
@@ -32,18 +32,8 @@ export function activate(context: vscode.ExtensionContext) {
 
     ptyManager = new PtyManager(panel, context.extensionPath);
 
-    panel.webview.html = getWebviewContent(panel.webview, context.extensionPath);
-
-    // If opened with a cwd, send it once webview is ready
-    if (cwd) {
-      const readyHandler = panel.webview.onDidReceiveMessage((msg) => {
-        if (msg.type === 'webview-ready') {
-          panel!.webview.postMessage({ type: 'create-tile', cwd });
-          readyHandler.dispose();
-        }
-      });
-      context.subscriptions.push(readyHandler);
-    }
+    // Pass initial cwd to webview so the first tile uses it (no duplicate)
+    panel.webview.html = getWebviewContent(panel.webview, context.extensionPath, cwd);
 
     panel.webview.onDidReceiveMessage(
       (msg) => {
@@ -80,9 +70,14 @@ export function activate(context: vscode.ExtensionContext) {
 
   // Command: open canvas (command palette + context menu)
   const cmd = vscode.commands.registerCommand('termvas.open', (uri?: vscode.Uri) => {
-    const cwd = uri?.fsPath
-      || vscode.window.activeTextEditor?.document.uri.fsPath
-      || vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
+    // Only use cwd from explicit URI arg (explorer context menu)
+    // Don't auto-pick from active editor to avoid file-path-as-cwd errors
+    let cwd: string | undefined;
+    if (uri) {
+      const stat = fs.statSync(uri.fsPath, { throwIfNoEntry: false });
+      // If it's a file, use its parent directory
+      cwd = stat?.isDirectory() ? uri.fsPath : path.dirname(uri.fsPath);
+    }
     openCanvas(cwd);
   });
 
@@ -101,13 +96,14 @@ export function activate(context: vscode.ExtensionContext) {
   context.subscriptions.push(cmd, cmdRestart);
 }
 
-function getWebviewContent(webview: vscode.Webview, extensionPath: string): string {
+function getWebviewContent(webview: vscode.Webview, extensionPath: string, initialCwd?: string): string {
   const distUri = vscode.Uri.file(path.join(extensionPath, 'dist'));
   const webviewJs = webview.asWebviewUri(vscode.Uri.joinPath(distUri, 'webview.js'));
   const xtermCss = webview.asWebviewUri(vscode.Uri.joinPath(distUri, 'xterm.css'));
   const stylesCss = webview.asWebviewUri(vscode.Uri.joinPath(distUri, 'styles.css'));
 
   const nonce = getNonce();
+  const cwdAttr = initialCwd ? ` data-initial-cwd="${initialCwd.replace(/"/g, '&quot;')}"` : '';
 
   return `<!DOCTYPE html>
 <html lang="en">
@@ -120,7 +116,7 @@ function getWebviewContent(webview: vscode.Webview, extensionPath: string): stri
   <title>Termvas</title>
 </head>
 <body>
-  <div id="canvas-container">
+  <div id="canvas-container"${cwdAttr}>
     <canvas id="grid-canvas"></canvas>
     <div id="tiles-layer"></div>
     <div id="marquee" class="hidden"></div>
