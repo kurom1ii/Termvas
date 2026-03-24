@@ -91,20 +91,16 @@ export function activate(context: vscode.ExtensionContext) {
     openCanvas(cwd);
   });
 
-  // Command: restart extension — destroy everything and reload fresh
+  // Command: restart extension — destroy everything and reload VSCode to load latest code
   const cmdRestart = vscode.commands.registerCommand('termvas.restart', async () => {
     // Destroy current panel and all PTY sessions
     if (panel) {
       ptyManager?.destroyAll();
-      panel.dispose(); // triggers onDidDispose which clears panel + ptyManager
+      panel.dispose();
     }
 
-    // Small delay to let cleanup finish
-    await new Promise(resolve => setTimeout(resolve, 200));
-
-    // Re-open fresh canvas
-    openCanvas();
-    vscode.window.showInformationMessage('Termvas restarted.');
+    // Reload the entire VSCode window — this reloads all extensions with fresh code
+    await vscode.commands.executeCommand('workbench.action.reloadWindow');
   });
 
   context.subscriptions.push(cmd, cmdHere, cmdRestart);
