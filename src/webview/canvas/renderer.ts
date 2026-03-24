@@ -100,13 +100,12 @@ export function positionTile(dom: TileDom, tile: Tile): void {
   const sx = tile.x * viewport.zoom + viewport.panX;
   const sy = tile.y * viewport.zoom + viewport.panY;
 
-  // Size in canvas-space pixels (unchanged), visually scaled by CSS transform
+  // Actual pixel dimensions (no CSS transform) — keeps xterm text crisp
   dom.container.style.left = `${sx}px`;
   dom.container.style.top = `${sy}px`;
-  dom.container.style.width = `${tile.width}px`;
-  dom.container.style.height = `${tile.height}px`;
-  dom.container.style.transform = `scale(${viewport.zoom})`;
-  dom.container.style.transformOrigin = 'top left';
+  dom.container.style.width = `${tile.width * viewport.zoom}px`;
+  dom.container.style.height = `${tile.height * viewport.zoom}px`;
+  dom.container.style.transform = '';
   dom.container.style.zIndex = String(tile.zIndex);
 
   // Selection highlight

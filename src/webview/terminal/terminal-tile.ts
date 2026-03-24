@@ -39,7 +39,7 @@ export function createTerminal(sessionId: string, contentArea: HTMLElement): Ter
   const term = new Terminal({
     theme: getThemeFromVSCode(),
     fontFamily: '"Cascadia Code", "JetBrains Mono", "Fira Code", Menlo, Monaco, "Courier New", monospace',
-    fontSize: 14,
+    fontSize: 16,
     fontWeight: '400',
     fontWeightBold: '700',
     cursorBlink: true,
