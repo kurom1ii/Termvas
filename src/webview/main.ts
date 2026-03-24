@@ -59,7 +59,7 @@ function focusCameraOnTile(tile: ReturnType<typeof getTile>): void {
 
   const startX = camera.x;
   const startY = camera.y;
-  const duration = 300;
+  const duration = 150;
   const startTime = performance.now();
 
   function animatePan(now: number) {
@@ -114,24 +114,21 @@ function updatePanel(): void {
   });
 }
 
-// Scroll on panel list → cycle through terminals
-let panelScrollAccum = 0;
+// Scroll on panel list → cycle through terminals (fast, no threshold)
 panelList.addEventListener('wheel', (e) => {
   e.preventDefault();
   e.stopPropagation();
-  panelScrollAccum += e.deltaY;
-  if (Math.abs(panelScrollAccum) < 50) return; // threshold
-  const direction = panelScrollAccum > 0 ? 1 : -1;
-  panelScrollAccum = 0;
 
+  const direction = e.deltaY > 0 ? 1 : -1;
   const tiles = getAllTiles();
   if (tiles.length === 0) return;
 
-  // Find currently selected index
   let currentIdx = tiles.findIndex(t => isSelected(t.id));
   if (currentIdx === -1) currentIdx = 0;
 
   const nextIdx = Math.max(0, Math.min(tiles.length - 1, currentIdx + direction));
+  if (nextIdx === currentIdx) return;
+
   const tile = tiles[nextIdx];
   clearSelection();
   selectTile(tile.id);
