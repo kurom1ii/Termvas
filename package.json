@@ -31,6 +31,18 @@
           "group": "navigation@32",
           "when": "explorerResourceIsFolder"
         }
+      ],
+      "editor/context": [
+        {
+          "command": "termvas.open",
+          "group": "z_commands"
+        }
+      ],
+      "editor/title/context": [
+        {
+          "command": "termvas.open",
+          "group": "1_termvas"
+        }
       ]
     }
   },
