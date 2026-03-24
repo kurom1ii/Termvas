@@ -42,6 +42,12 @@
           "group": "navigation@0",
           "when": "true"
         }
+      ],
+      "editor/title/context": [
+        {
+          "command": "termvas.open",
+          "group": "3_preview"
+        }
       ]
     }
   },
