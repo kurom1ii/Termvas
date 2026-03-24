@@ -236,7 +236,6 @@ initInteractions(container, tilesLayer, zoomIndicator, marqueeEl, {
     const inst = getTerminalInstance(id);
     if (inst) requestAnimationFrame(() => inst.fit.fit());
   },
-  onZoomEnd: () => refitAll(),
 });
 
 container.addEventListener('tile-delete', ((e: CustomEvent) => {

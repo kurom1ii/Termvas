@@ -19,11 +19,6 @@ export const MIN_TILE_HEIGHT = 160;
 export const ZOOM_MIN = 0.33;
 export const ZOOM_MAX = 1.5;
 
-// Simple zoom flag — terminal ResizeObserver checks this, skips fit.fit() if true
-export let zoomActive = false;
-export function markZoom(): void { zoomActive = true; }
-export function clearZoom(): void { zoomActive = false; }
-
 // ── Camera ──
 // Manages the viewport into the infinite canvas world.
 // Zoom changes how the world is projected to screen, NOT tile sizes.
