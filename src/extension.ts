@@ -98,7 +98,14 @@ export function activate(context: vscode.ExtensionContext) {
     await vscode.commands.executeCommand('workbench.action.reloadWindow');
   });
 
-  context.subscriptions.push(cmd, cmdRestart);
+  // Status bar button — always visible, click to open canvas
+  const statusBar = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Right, 100);
+  statusBar.text = '$(terminal) Termvas';
+  statusBar.tooltip = 'Open Termvas Canvas';
+  statusBar.command = 'termvas.open';
+  statusBar.show();
+
+  context.subscriptions.push(cmd, cmdRestart, statusBar);
 }
 
 function getWebviewContent(webview: vscode.Webview, extensionPath: string): string {

@@ -34,12 +34,6 @@
           "group": "navigation@32",
           "when": "explorerResourceIsFolder"
         }
-      ],
-      "editorTabBar/context": [
-        {
-          "command": "termvas.open",
-          "group": "1_termvas"
-        }
       ]
     }
   },
