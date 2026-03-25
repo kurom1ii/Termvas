@@ -142,6 +142,11 @@ panelList.addEventListener('wheel', (e) => {
   selectTile(tile.id);
   bringToFront(tile);
   focusCameraOnTile(tile);
+  // Disable overlay and focus terminal for typing
+  const d = getTileDom(tile.id);
+  if (d) d.contentOverlay.style.pointerEvents = 'none';
+  requestAnimationFrame(() => focusTerminal(tile.id));
+  updatePanel();
 }, { passive: false });
 
 // ── Tile Creation ──
