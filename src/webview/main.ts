@@ -21,6 +21,7 @@ const tilesLayer = document.getElementById('tiles-layer')!;
 const marqueeEl = document.getElementById('marquee')!;
 const zoomIndicator = document.getElementById('zoom-indicator')!;
 const panelList = document.getElementById('panel-list')!;
+const panelActions = document.getElementById('panel-actions')!;
 
 // Track last known mouse position for smart duplicate
 let lastMouseX = 0;
@@ -40,17 +41,20 @@ function updateCanvas(): void {
   positionAllTiles(getAllTiles());
 }
 
-// ── Side Panel ──
+// ── Top Panel (tab bar) ──
 
-const terminalSvg = '<svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="4 6 7 9 4 12"/><line x1="9" y1="12" x2="13" y2="12"/></svg>';
+const terminalSvg = '<svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="4 6 7 9 4 12"/><line x1="9" y1="12" x2="13" y2="12"/></svg>';
 
-// Setup panel header
-const panelHeader = document.getElementById('panel-header')!;
-panelHeader.innerHTML = `<span id="panel-header-title">Terminals</span><button id="panel-close-all" title="Close all">&times; All</button>`;
-document.getElementById('panel-close-all')!.addEventListener('click', () => {
+// Close all button
+const closeAllBtn = document.createElement('button');
+closeAllBtn.className = 'panel-action-btn';
+closeAllBtn.innerHTML = '&times;';
+closeAllBtn.title = 'Close all';
+closeAllBtn.addEventListener('click', () => {
   const ids = getAllTiles().map(t => t.id);
   for (const id of ids) destroyTile(id);
 });
+panelActions.appendChild(closeAllBtn);
 
 function focusCameraOnTile(tile: ReturnType<typeof getTile>): void {
   if (!tile) return;
@@ -79,19 +83,18 @@ function updatePanel(): void {
   panelList.innerHTML = '';
 
   tiles.forEach((tile, index) => {
-    const item = document.createElement('div');
-    item.className = 'panel-item' + (isSelected(tile.id) ? ' active' : '');
+    const tab = document.createElement('div');
+    tab.className = 'panel-tab' + (isSelected(tile.id) ? ' active' : '');
 
     const icon = document.createElement('span');
-    icon.className = 'panel-item-icon';
+    icon.className = 'panel-tab-icon';
     icon.innerHTML = terminalSvg;
 
     const label = document.createElement('span');
-    label.className = 'panel-item-label';
-    label.textContent = `Terminal ${index + 1}`;
+    label.textContent = `${index + 1}`;
 
     const closeBtn = document.createElement('button');
-    closeBtn.className = 'panel-item-close';
+    closeBtn.className = 'panel-tab-close';
     closeBtn.innerHTML = '&times;';
     closeBtn.title = 'Close';
     closeBtn.addEventListener('click', (e) => {
@@ -99,18 +102,18 @@ function updatePanel(): void {
       destroyTile(tile.id);
     });
 
-    item.appendChild(icon);
-    item.appendChild(label);
-    item.appendChild(closeBtn);
+    tab.appendChild(icon);
+    tab.appendChild(label);
+    tab.appendChild(closeBtn);
 
-    item.addEventListener('click', () => {
+    tab.addEventListener('click', () => {
       clearSelection();
       selectTile(tile.id);
       bringToFront(tile);
       focusCameraOnTile(tile);
     });
 
-    panelList.appendChild(item);
+    panelList.appendChild(tab);
   });
 }
 
