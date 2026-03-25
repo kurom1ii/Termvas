@@ -21,39 +21,40 @@ html, body {
 /* ── App Wrapper ── */
 
 #app-wrapper {
-  display: flex;
-  flex-direction: column;
   width: 100%;
   height: 100%;
 }
 
-/* ── Top Panel ── */
+/* ── Floating Panel (inside canvas) ── */
 
-#top-panel {
+#floating-panel {
+  position: absolute;
+  top: 8px;
+  left: 50%;
+  transform: translateX(-50%);
   display: flex;
   align-items: center;
-  height: 32px;
-  min-height: 32px;
-  background: var(--vscode-titleBar-activeBackground, #3c3c3c);
-  border-bottom: 1px solid var(--vscode-editorWidget-border, rgba(255,255,255,0.1));
-  padding: 0 8px;
-  gap: 4px;
-  overflow-x: auto;
-  overflow-y: hidden;
-}
-
-#top-panel::-webkit-scrollbar {
-  display: none;
+  height: 30px;
+  background: var(--vscode-editorWidget-background, rgba(30,30,30,0.9));
+  border: 1px solid var(--vscode-editorWidget-border, rgba(255,255,255,0.12));
+  border-radius: 8px;
+  padding: 0 6px;
+  gap: 2px;
+  z-index: 9000;
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+  max-width: 80%;
 }
 
 #panel-list {
   display: flex;
   align-items: center;
   gap: 2px;
-  flex: 1;
-  min-width: 0;
   overflow-x: auto;
   overflow-y: hidden;
+  flex: 1;
+  min-width: 0;
 }
 
 #panel-list::-webkit-scrollbar {
@@ -64,6 +65,7 @@ html, body {
   display: flex;
   align-items: center;
   flex-shrink: 0;
+  margin-left: 4px;
 }
 
 .panel-tab {
@@ -145,8 +147,7 @@ html, body {
 
 #canvas-container {
   position: relative;
-  flex: 1;
-  min-width: 0;
+  width: 100%;
   height: 100%;
   overflow: hidden;
   background: var(--vscode-editor-background, #1e1e1e);

@@ -154,15 +154,15 @@ function getWebviewContent(webview: vscode.Webview, extensionPath: string, initi
 </head>
 <body>
   <div id="app-wrapper">
-    <div id="top-panel">
-      <div id="panel-list"></div>
-      <div id="panel-actions"></div>
-    </div>
     <div id="canvas-container"${cwdAttr}${stateAttr}>
       <canvas id="grid-canvas"></canvas>
       <div id="tiles-layer"></div>
       <div id="marquee" class="hidden"></div>
       <div id="zoom-indicator"></div>
+      <div id="floating-panel">
+        <div id="panel-list"></div>
+        <div id="panel-actions"></div>
+      </div>
     </div>
   </div>
   <script nonce="${nonce}" src="${webviewJs}"></script>
