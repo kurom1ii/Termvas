@@ -6,6 +6,39 @@ import * as fs from 'fs';
 let panel: vscode.WebviewPanel | undefined;
 let ptyManager: PtyManager | undefined;
 
+function getWorkspaceRoot(): string | undefined {
+  return vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
+}
+
+function getStatePath(): string | undefined {
+  const root = getWorkspaceRoot();
+  if (!root) return undefined;
+  return path.join(root, '.termvas', 'termvas.json');
+}
+
+function loadState(): { tiles: Array<{ x: number; y: number; width: number; height: number }>, camera: { x: number; y: number; zoom: number } } | null {
+  const statePath = getStatePath();
+  if (!statePath) return null;
+  try {
+    const data = fs.readFileSync(statePath, 'utf-8');
+    return JSON.parse(data);
+  } catch {
+    return null;
+  }
+}
+
+function saveState(state: unknown): void {
+  const statePath = getStatePath();
+  if (!statePath) return;
+  try {
+    const dir = path.dirname(statePath);
+    if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+    fs.writeFileSync(statePath, JSON.stringify(state, null, 2));
+  } catch {
+    // Ignore write errors
+  }
+}
+
 export function activate(context: vscode.ExtensionContext) {
   function openCanvas(cwd?: string) {
     if (panel) {
@@ -32,8 +65,8 @@ export function activate(context: vscode.ExtensionContext) {
 
     ptyManager = new PtyManager(panel, context.extensionPath);
 
-    // Pass initial cwd to webview so the first tile uses it (no duplicate)
-    panel.webview.html = getWebviewContent(panel.webview, context.extensionPath, cwd);
+    // Pass initial cwd + saved state to webview
+    panel.webview.html = getWebviewContent(panel.webview, context.extensionPath, cwd, loadState());
 
     panel.webview.onDidReceiveMessage(
       (msg) => {
@@ -49,6 +82,9 @@ export function activate(context: vscode.ExtensionContext) {
             break;
           case 'pty-destroy':
             ptyManager!.destroySession(msg.id);
+            break;
+          case 'save-state':
+            saveState(msg.state);
             break;
         }
       },
@@ -96,7 +132,7 @@ export function activate(context: vscode.ExtensionContext) {
   context.subscriptions.push(cmd, cmdRestart);
 }
 
-function getWebviewContent(webview: vscode.Webview, extensionPath: string, initialCwd?: string): string {
+function getWebviewContent(webview: vscode.Webview, extensionPath: string, initialCwd?: string, savedState?: unknown): string {
   const distUri = vscode.Uri.file(path.join(extensionPath, 'dist'));
   const webviewJs = webview.asWebviewUri(vscode.Uri.joinPath(distUri, 'webview.js'));
   const xtermCss = webview.asWebviewUri(vscode.Uri.joinPath(distUri, 'xterm.css'));
@@ -104,6 +140,7 @@ function getWebviewContent(webview: vscode.Webview, extensionPath: string, initi
 
   const nonce = getNonce();
   const cwdAttr = initialCwd ? ` data-initial-cwd="${initialCwd.replace(/"/g, '&quot;')}"` : '';
+  const stateAttr = savedState ? ` data-saved-state="${JSON.stringify(savedState).replace(/"/g, '&quot;')}"` : '';
 
   return `<!DOCTYPE html>
 <html lang="en">
@@ -121,7 +158,7 @@ function getWebviewContent(webview: vscode.Webview, extensionPath: string, initi
       <div id="panel-list"></div>
       <div id="panel-actions"></div>
     </div>
-    <div id="canvas-container"${cwdAttr}>
+    <div id="canvas-container"${cwdAttr}${stateAttr}>
       <canvas id="grid-canvas"></canvas>
       <div id="tiles-layer"></div>
       <div id="marquee" class="hidden"></div>

@@ -166,7 +166,7 @@ function createTerminalTile(canvasX: number, canvasY: number, cwd?: string): voi
     },
   });
 
-  attachTileDrag(tile, dom.titleBar, () => { updateCanvas(); updatePanel(); });
+  attachTileDrag(tile, dom.titleBar, () => { updateCanvas(); updatePanel(); debounceSaveState(); });
   attachTileResize(tile, dom.resizeHandles, updateCanvas, (tileId) => {
     const inst = getTerminalInstance(tileId);
     if (inst) requestAnimationFrame(() => inst.fit.fit());
@@ -179,6 +179,7 @@ function createTerminalTile(canvasX: number, canvasY: number, cwd?: string): voi
   selectTile(tile.id);
   updateCanvas();
   updatePanel();
+  debounceSaveState();
 }
 
 function destroyTile(id: string): void {
@@ -191,9 +192,8 @@ function destroyTile(id: string): void {
   removeTileDOM(id);
   updateCanvas();
   updatePanel();
+  debounceSaveState();
 }
-
-// ── Smart Duplicate ──
 // Row-aware: if placing right → stay on source row (align to row's first tile Y)
 // If placing below → start new row (align X to row's first tile)
 
@@ -318,11 +318,62 @@ window.addEventListener('message', (event) => {
   }
 });
 
-// Create initial terminal tile at center
+// ── State persistence ──
+
+let saveTimer: number | undefined;
+function debounceSaveState(): void {
+  clearTimeout(saveTimer);
+  saveTimer = window.setTimeout(() => {
+    const tiles = getAllTiles();
+    vscode.postMessage({
+      type: 'save-state',
+      state: {
+        tiles: tiles.map(t => ({ x: t.x, y: t.y, width: t.width, height: t.height })),
+        camera: { x: camera.x, y: camera.y, zoom: camera.zoom },
+      },
+    });
+  }, 500);
+}
+
+// Hook save into canvas updates
+const _origUpdateCanvas = updateCanvas;
+function updateCanvasAndSave(): void {
+  _origUpdateCanvas();
+  debounceSaveState();
+}
+
+// ── Restore or create initial tile ──
 requestAnimationFrame(() => {
+  const savedRaw = container.dataset.savedState;
+  const initialCwd = container.dataset.initialCwd || undefined;
+
+  if (savedRaw) {
+    try {
+      const saved = JSON.parse(savedRaw);
+      // Restore camera
+      if (saved.camera) {
+        camera.x = saved.camera.x || 0;
+        camera.y = saved.camera.y || 0;
+        camera.zoom = saved.camera.zoom || 1;
+      }
+      // Restore tiles
+      if (saved.tiles && saved.tiles.length > 0) {
+        for (const t of saved.tiles) {
+          createTerminalTile(t.x, t.y);
+        }
+        drawGrid();
+        positionAllTiles(getAllTiles());
+        updatePanel();
+        return; // restored — skip default tile
+      }
+    } catch {
+      // Invalid state — fall through to default
+    }
+  }
+
+  // No saved state — create one default tile
   const screenCX = container.clientWidth / 2 - DEFAULT_TILE_WIDTH / 2;
   const screenCY = container.clientHeight / 2 - DEFAULT_TILE_HEIGHT / 2;
   const { wx, wy } = camera.screenToWorld(screenCX, screenCY);
-  const initialCwd = container.dataset.initialCwd || undefined;
   createTerminalTile(wx, wy, initialCwd);
 });
