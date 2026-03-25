@@ -56,6 +56,8 @@ function enableAllTilePointers(): void {
 }
 
 // ── Pan logic (shared between middle-click and Ctrl+left-drag) ──
+let _onPanEnd: (() => void) | undefined;
+
 function startPan(container: HTMLElement): void {
   if (document.activeElement instanceof HTMLElement) document.activeElement.blur();
   _isPanning = true;
@@ -79,6 +81,7 @@ function startPan(container: HTMLElement): void {
     container.style.cursor = '';
     _isPanning = false;
     enableAllTilePointers();
+    _onPanEnd?.();
   }
 
   document.addEventListener('mousemove', onMove);
@@ -93,37 +96,62 @@ export function initInteractions(
   callbacks: {
     onCreateTile: (canvasX: number, canvasY: number) => void;
     onTileResized: (id: string) => void;
+    onTileFocused?: (id: string) => void;
+    onZoomChanged?: (zoom: number) => void;
   }
 ): void {
 
-  // ── Ctrl+wheel zoom — capture phase so it fires BEFORE xterm catches wheel ──
+  // ── Auto-focus: find tile under mouse cursor and focus it ──
+  let lastMouseX = 0, lastMouseY = 0;
+  container.addEventListener('mousemove', (e) => {
+    lastMouseX = e.clientX;
+    lastMouseY = e.clientY;
+  });
+
+  function focusTileUnderCursor(): void {
+    const el = document.elementFromPoint(lastMouseX, lastMouseY);
+    if (!el) return;
+    const tileEl = (el as HTMLElement).closest('.canvas-tile');
+    if (tileEl) {
+      const tileId = (tileEl as HTMLElement).dataset.tileId;
+      if (tileId) {
+        // Disable overlay so xterm receives input
+        const dom = getAllTileDoms().get(tileId);
+        if (dom) dom.contentOverlay.style.pointerEvents = 'none';
+        callbacks.onTileFocused?.(tileId);
+      }
+    }
+  }
+
+  // Wire pan-end auto-focus
+  _onPanEnd = focusTileUnderCursor;
+
+  // ── Scroll-end auto-focus (debounced) ──
+  let scrollFocusTimer: number | undefined;
+  container.addEventListener('wheel', () => {
+    clearTimeout(scrollFocusTimer);
+    scrollFocusTimer = window.setTimeout(focusTileUnderCursor, 200);
+  });
+
+  // ── Ctrl+wheel zoom — 10% discrete steps, capture phase ──
   container.addEventListener('wheel', (e) => {
     if (e.ctrlKey || e.metaKey) {
-      e.preventDefault(); // prevent browser zoom, let xterm ignore Ctrl+wheel naturally
-
-      if (zoomSnapRaf) { cancelAnimationFrame(zoomSnapRaf); zoomSnapRaf = undefined; }
-      clearTimeout(zoomSnapTimer);
+      e.preventDefault();
 
       const rect = container.getBoundingClientRect();
       const mx = e.clientX - rect.left, my = e.clientY - rect.top;
-      let factor = Math.exp((-e.deltaY * 0.6) / 100);
 
-      if (camera.zoom >= ZOOM_MAX && factor > 1) {
-        factor = 1 + (factor - 1) / (1 + (camera.zoom / ZOOM_MAX - 1) * RUBBER_BAND_K);
-      } else if (camera.zoom <= ZOOM_MIN && factor < 1) {
-        factor = 1 - (1 - factor) / (1 + (ZOOM_MIN / camera.zoom - 1) * RUBBER_BAND_K);
-      }
+      const step = e.deltaY < 0 ? 0.1 : -0.1;
+      const target = Math.round((camera.zoom + step) * 10) / 10;
+      const clamped = Math.max(ZOOM_MIN, Math.min(ZOOM_MAX, target));
+      if (clamped === camera.zoom) { showZoomIndicator(zoomIndicator); return; }
 
-      camera.zoomToward(mx, my, camera.zoom * factor);
-      lastZoomFocalX = mx; lastZoomFocalY = my;
-
-      if (camera.zoom > ZOOM_MAX || camera.zoom < ZOOM_MIN) {
-        zoomSnapTimer = window.setTimeout(() => snapBackZoom(zoomIndicator), 150);
-      }
+      camera.zoomToward(mx, my, clamped);
+      callbacks.onZoomChanged?.(clamped);
       showZoomIndicator(zoomIndicator);
       update();
     }
-  }, { capture: true, passive: false }); // capture phase!
+  }, { capture: true, passive: false });
 
   // ── Normal scroll/pan — bubble phase (skip if over terminal) ──
   container.addEventListener('wheel', (e) => {

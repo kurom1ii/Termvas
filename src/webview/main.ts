@@ -8,7 +8,7 @@ import {
 } from './canvas/state';
 import { createTileDOM, removeTileDOM, positionAllTiles, positionTile, getTileDom } from './canvas/renderer';
 import { initInteractions, attachTileDrag, attachTileResize } from './canvas/interactions';
-import { createTerminal, getTerminalInstance, handlePtyData, handlePtyExit, handleClipboardContent, focusTerminal, updateAllThemes, refitAll, setVSCodeApi } from './terminal/terminal-tile';
+import { createTerminal, getTerminalInstance, handlePtyData, handlePtyExit, handleClipboardContent, focusTerminal, updateAllThemes, refitAll, updateTerminalZoom, setVSCodeApi } from './terminal/terminal-tile';
 
 // Acquire VSCode API
 const vscode = acquireVsCodeApi();
@@ -161,15 +161,18 @@ function createTerminalTile(canvasX: number, canvasY: number, cwd?: string): voi
   const dom = createTileDOM(tile, tilesLayer, {
     onClose: (tileId) => destroyTile(tileId),
     onFocus: (tileId) => {
+      clearSelection();
+      selectTile(tileId);
       const t = getTile(tileId);
       if (t) {
         bringToFront(t);
-        const d = getTileDom(tileId);
-        if (d) positionTile(d, t);
+        focusCameraOnTile(t);
       }
-      // Auto-focus terminal so user can type immediately
-      requestAnimationFrame(() => focusTerminal(tileId));
+      positionAllTiles(getAllTiles());
       updatePanel();
+    },
+    onTerminalClick: (tileId) => {
+      requestAnimationFrame(() => focusTerminal(tileId));
     },
   });
 
@@ -287,14 +290,18 @@ initInteractions(container, tilesLayer, zoomIndicator, marqueeEl, {
     if (inst) requestAnimationFrame(() => inst.fit.fit());
   },
   onTileFocused: (id: string) => {
+    clearSelection();
+    selectTile(id);
     const t = getTile(id);
     if (t) {
       bringToFront(t);
-      const d = getTileDom(id);
-      if (d) positionTile(d, t);
     }
+    positionAllTiles(getAllTiles());
     requestAnimationFrame(() => focusTerminal(id));
     updatePanel();
+  },
+  onZoomChanged: (zoom: number) => {
+    updateTerminalZoom(zoom);
   },
 });
 

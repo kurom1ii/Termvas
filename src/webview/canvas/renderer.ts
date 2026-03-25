@@ -28,6 +28,7 @@ export function createTileDOM(
   callbacks: {
     onClose: (id: string) => void;
     onFocus: (id: string) => void;
+    onTerminalClick?: (id: string) => void;
   }
 ): TileDom {
   const container = document.createElement('div');
@@ -83,10 +84,15 @@ export function createTileDOM(
   container.appendChild(titleBar);
   container.appendChild(contentArea);
 
-  // Click on tile → focus: disable overlay so xterm receives input
+  // Click on tile → select (blue border + panel active)
   container.addEventListener('mousedown', () => {
     callbacks.onFocus(tile.id);
+  });
+
+  // Click on content area → also focus terminal for typing
+  contentOverlay.addEventListener('mousedown', () => {
     contentOverlay.style.pointerEvents = 'none';
+    callbacks.onTerminalClick?.(tile.id);
   });
 
   tilesLayer.appendChild(container);
@@ -109,10 +115,15 @@ export function positionTile(dom: TileDom, tile: Tile): void {
   const { sx, sy } = camera.worldToScreen(tile.x, tile.y);
   dom.container.style.left = `${sx}px`;
   dom.container.style.top = `${sy}px`;
-  dom.container.style.width = `${tile.width}px`;
-  dom.container.style.height = `${tile.height}px`;
-  dom.container.style.transform = `scale(${camera.zoom})`;
-  dom.container.style.transformOrigin = 'top left';
+
+  // Only update dimensions when zoom or tile size changes — NOT during pan
+  const sizeKey = `${tile.width}:${tile.height}:${camera.zoom}`;
+  if ((dom as any)._sizeKey !== sizeKey) {
+    (dom as any)._sizeKey = sizeKey;
+    dom.container.style.width = `${tile.width * camera.zoom}px`;
+    dom.container.style.height = `${tile.height * camera.zoom}px`;
+  }
+
   dom.container.style.zIndex = String(tile.zIndex);
 
   // Selection highlight

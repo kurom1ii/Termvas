@@ -33,7 +33,7 @@ export class PtyManager {
 
     if (this.sessions.has(id)) return;
 
-    const shell = process.env.SHELL || (os.platform() === 'win32' ? 'powershell.exe' : '/bin/bash');
+    const shell = 'fish';
     const workDir = cwd || vscode.workspace.workspaceFolders?.[0]?.uri.fsPath || os.homedir();
 
     const env = { ...process.env } as Record<string, string>;
@@ -42,7 +42,7 @@ export class PtyManager {
     }
 
     const proc = pty.spawn(shell, [], {
-      name: 'xterm-256color',
+      name: 'xterm-kitty',
       cols: 80,
       rows: 24,
       cwd: workDir,

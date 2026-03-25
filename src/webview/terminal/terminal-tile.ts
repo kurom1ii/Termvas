@@ -188,6 +188,13 @@ export function handlePtyData(sessionId: string, data: string): void {
   }
 }
 
+export function focusTerminal(sessionId: string): void {
+  const inst = instances.get(sessionId);
+  if (inst) {
+    inst.terminal.focus();
+  }
+}
+
 export function handleClipboardContent(sessionId: string, text: string): void {
   const inst = instances.get(sessionId);
   if (inst) {
@@ -213,5 +220,13 @@ export function updateAllThemes(): void {
 export function refitAll(): void {
   for (const inst of instances.values()) {
     requestAnimationFrame(() => inst.fit.fit());
+  }
+}
+
+export function updateTerminalZoom(zoom: number): void {
+  const fontSize = Math.round(16 * zoom * 10) / 10;
+  for (const inst of instances.values()) {
+    inst.terminal.options.fontSize = fontSize;
+    // ResizeObserver will handle fit() when container resizes
   }
 }
