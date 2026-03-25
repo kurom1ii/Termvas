@@ -1,9 +1,6 @@
 import * as vscode from 'vscode';
 import * as os from 'os';
-import * as path from 'path';
-import { execSync } from 'child_process';
 
-// node-pty is loaded dynamically to handle missing native module gracefully
 let pty: typeof import('node-pty');
 try {
   pty = require('node-pty');
@@ -14,17 +11,14 @@ try {
 interface Session {
   process: import('node-pty').IPty;
   disposables: import('node-pty').IDisposable[];
-  tmuxSession: string;
 }
 
 export class PtyManager {
   private sessions = new Map<string, Session>();
   private panel: vscode.WebviewPanel;
-  private extensionPath: string;
 
-  constructor(panel: vscode.WebviewPanel, extensionPath: string) {
+  constructor(panel: vscode.WebviewPanel, _extensionPath: string) {
     this.panel = panel;
-    this.extensionPath = extensionPath;
   }
 
   createSession(id: string, cwd?: string): void {
@@ -32,31 +26,23 @@ export class PtyManager {
       this.panel.webview.postMessage({
         type: 'pty-data',
         id,
-        data: '\r\n\x1b[31mError: node-pty not available. Rebuild native modules.\x1b[0m\r\n',
+        data: '\r\n\x1b[31mError: node-pty not available.\x1b[0m\r\n',
       });
       return;
     }
 
     if (this.sessions.has(id)) return;
 
+    const shell = process.env.SHELL || (os.platform() === 'win32' ? 'powershell.exe' : '/bin/bash');
     const workDir = cwd || vscode.workspace.workspaceFolders?.[0]?.uri.fsPath || os.homedir();
 
     const env = { ...process.env } as Record<string, string>;
     if (!env.LANG || !env.LANG.includes('UTF-8')) {
       env.LANG = 'en_US.UTF-8';
     }
-    env.TERM = 'xterm-kitty';
-    env.COLORTERM = 'truecolor';
 
-    const tmuxSession = 'tv-' + id.replace(/[^a-zA-Z0-9-]/g, '').slice(0, 32);
-    const tmuxConf = path.join(this.extensionPath, 'resources', 'tmux.conf');
-
-    const proc = pty.spawn('tmux', [
-      '-f', tmuxConf,
-      'new-session', '-s', tmuxSession, '-x', '80', '-y', '24',
-      'fish',
-    ], {
-      name: 'xterm-kitty',
+    const proc = pty.spawn(shell, [], {
+      name: 'xterm-256color',
       cols: 80,
       rows: 24,
       cwd: workDir,
@@ -74,12 +60,11 @@ export class PtyManager {
     disposables.push(
       proc.onExit(({ exitCode }) => {
         this.panel.webview.postMessage({ type: 'pty-exit', id, exitCode });
-        this.cleanupTmuxSession(tmuxSession);
         this.sessions.delete(id);
       })
     );
 
-    this.sessions.set(id, { process: proc, disposables, tmuxSession });
+    this.sessions.set(id, { process: proc, disposables });
   }
 
   writeSession(id: string, data: string): void {
@@ -98,7 +83,6 @@ export class PtyManager {
     const session = this.sessions.get(id);
     if (!session) return;
     for (const d of session.disposables) d.dispose();
-    this.cleanupTmuxSession(session.tmuxSession);
     try {
       session.process.kill();
     } catch {
@@ -110,14 +94,6 @@ export class PtyManager {
   destroyAll(): void {
     for (const id of [...this.sessions.keys()]) {
       this.destroySession(id);
-    }
-  }
-
-  private cleanupTmuxSession(name: string): void {
-    try {
-      execSync(`tmux kill-session -t ${name} 2>/dev/null`);
-    } catch {
-      // Session may already be dead
     }
   }
 }
