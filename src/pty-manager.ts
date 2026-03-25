@@ -42,7 +42,7 @@ export class PtyManager {
     }
 
     const proc = pty.spawn(shell, [], {
-      name: 'xterm-256color',
+      name: 'xterm-kitty',
       cols: 80,
       rows: 24,
       cwd: workDir,
