@@ -8,7 +8,7 @@ import {
 } from './canvas/state';
 import { createTileDOM, removeTileDOM, positionAllTiles, positionTile, getTileDom } from './canvas/renderer';
 import { initInteractions, attachTileDrag, attachTileResize } from './canvas/interactions';
-import { createTerminal, getTerminalInstance, handlePtyData, handlePtyExit, handleClipboardContent, updateAllThemes, refitAll, setVSCodeApi } from './terminal/terminal-tile';
+import { createTerminal, getTerminalInstance, handlePtyData, handlePtyExit, handleClipboardContent, focusTerminal, updateAllThemes, refitAll, setVSCodeApi } from './terminal/terminal-tile';
 
 // Acquire VSCode API
 const vscode = acquireVsCodeApi();
@@ -111,6 +111,11 @@ function updatePanel(): void {
       selectTile(tile.id);
       bringToFront(tile);
       focusCameraOnTile(tile);
+      // Disable overlay and focus terminal for typing
+      const d = getTileDom(tile.id);
+      if (d) d.contentOverlay.style.pointerEvents = 'none';
+      requestAnimationFrame(() => focusTerminal(tile.id));
+      updatePanel();
     });
 
     panelList.appendChild(tab);
@@ -162,6 +167,8 @@ function createTerminalTile(canvasX: number, canvasY: number, cwd?: string): voi
         const d = getTileDom(tileId);
         if (d) positionTile(d, t);
       }
+      // Auto-focus terminal so user can type immediately
+      requestAnimationFrame(() => focusTerminal(tileId));
       updatePanel();
     },
   });
@@ -202,6 +209,7 @@ function smartDuplicate(sourceTile: ReturnType<typeof getTile>): void {
   const GAP = 40;
   const rect = container.getBoundingClientRect();
   const mouseScreenY = lastMouseY - rect.top;
+  const tileTopScreen = camera.worldToScreen(sourceTile.x, sourceTile.y).sy;
   const tileBottomScreen = camera.worldToScreen(sourceTile.x, sourceTile.y + sourceTile.height).sy;
 
   // Find all tiles on the same row (same Y coordinate within tolerance)
@@ -220,8 +228,7 @@ function smartDuplicate(sourceTile: ReturnType<typeof getTile>): void {
   let newY: number;
 
   if (mouseScreenY > tileBottomScreen) {
-    // Mouse below tile → place on next row, aligned to first tile's X
-    // Find existing rows below this one
+    // Mouse below tile → place on next row
     const rowY = sourceTile.y;
     const belowRows = allTiles
       .map(t => t.y)
@@ -229,23 +236,41 @@ function smartDuplicate(sourceTile: ReturnType<typeof getTile>): void {
       .sort((a, b) => a - b);
 
     if (belowRows.length > 0) {
-      // There are rows below — find rightmost tile in the LAST row
       const lastRowY = belowRows[belowRows.length - 1];
       const lastRowTiles = allTiles.filter(t =>
         Math.abs(t.y - lastRowY) < ROW_TOLERANCE
       ).sort((a, b) => a.x - b.x);
       const lastInLastRow = lastRowTiles[lastRowTiles.length - 1];
 
-      // Place to the right of the last tile in the bottom-most row
       newX = lastInLastRow.x + lastInLastRow.width + GAP;
       newY = lastRowY;
     } else {
-      // No rows below — create new row
       newX = firstInRow ? firstInRow.x : sourceTile.x;
       newY = sourceTile.y + sourceTile.height + GAP;
     }
+  } else if (mouseScreenY < tileTopScreen) {
+    // Mouse above tile → place on row above
+    const rowY = sourceTile.y;
+    const aboveRows = allTiles
+      .map(t => t.y)
+      .filter(y => y < rowY - ROW_TOLERANCE)
+      .sort((a, b) => a - b);
+
+    if (aboveRows.length > 0) {
+      const firstRowY = aboveRows[0];
+      const firstRowTiles = allTiles.filter(t =>
+        Math.abs(t.y - firstRowY) < ROW_TOLERANCE
+      ).sort((a, b) => a.x - b.x);
+      const lastInFirstRow = firstRowTiles[firstRowTiles.length - 1];
+
+      newX = lastInFirstRow.x + lastInFirstRow.width + GAP;
+      newY = firstRowY;
+    } else {
+      newX = firstInRow ? firstInRow.x : sourceTile.x;
+      newY = sourceTile.y - sourceTile.height - GAP;
+    }
   } else {
-    // Mouse horizontal → place to the right of rightmost in row
+    // Mouse on tile → place to the right of rightmost in row
     newX = rightmostInRow.x + rightmostInRow.width + GAP;
     newY = sourceTile.y;
   }
@@ -260,6 +285,16 @@ initInteractions(container, tilesLayer, zoomIndicator, marqueeEl, {
   onTileResized: (id: string) => {
     const inst = getTerminalInstance(id);
     if (inst) requestAnimationFrame(() => inst.fit.fit());
+  },
+  onTileFocused: (id: string) => {
+    const t = getTile(id);
+    if (t) {
+      bringToFront(t);
+      const d = getTileDom(id);
+      if (d) positionTile(d, t);
+    }
+    requestAnimationFrame(() => focusTerminal(id));
+    updatePanel();
   },
 });
 

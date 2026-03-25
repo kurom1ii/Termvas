@@ -17,7 +17,7 @@ export const MIN_TILE_WIDTH = 240;
 export const MIN_TILE_HEIGHT = 160;
 
 export const ZOOM_MIN = 0.6;
-export const ZOOM_MAX = 1.0;
+export const ZOOM_MAX = 1.5;
 
 // ── Camera ──
 // Manages the viewport into the infinite canvas world.
