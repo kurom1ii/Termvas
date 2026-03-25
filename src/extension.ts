@@ -83,6 +83,16 @@ export function activate(context: vscode.ExtensionContext) {
           case 'pty-destroy':
             ptyManager!.destroySession(msg.id);
             break;
+          case 'clipboard-copy':
+            vscode.env.clipboard.writeText(msg.text);
+            break;
+          case 'clipboard-paste':
+            vscode.env.clipboard.readText().then((text) => {
+              if (text && panel) {
+                panel.webview.postMessage({ type: 'clipboard-content', id: msg.id, text });
+              }
+            });
+            break;
           case 'save-state':
             saveState(msg.state);
             break;

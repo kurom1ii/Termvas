@@ -83,6 +83,38 @@ export function createTerminal(sessionId: string, contentArea: HTMLElement): Ter
     });
   });
 
+  // ── Clipboard: Ctrl+Shift+C/V and Ctrl+C with selection ──
+  term.attachCustomKeyEventHandler((ev: KeyboardEvent) => {
+    if (ev.type !== 'keydown') return true;
+
+    // Ctrl+Shift+C → copy selection
+    if (ev.ctrlKey && ev.shiftKey && (ev.key === 'C' || ev.key === 'c')) {
+      const sel = term.getSelection();
+      if (sel) {
+        vscodeApi.postMessage({ type: 'clipboard-copy', text: sel });
+      }
+      return false;
+    }
+
+    // Ctrl+Shift+V → paste from clipboard
+    if (ev.ctrlKey && ev.shiftKey && (ev.key === 'V' || ev.key === 'v')) {
+      vscodeApi.postMessage({ type: 'clipboard-paste', id: sessionId });
+      return false;
+    }
+
+    // Ctrl+C with selection → copy (no selection → normal SIGINT)
+    if (ev.ctrlKey && !ev.shiftKey && !ev.altKey && ev.key === 'c') {
+      const sel = term.getSelection();
+      if (sel) {
+        vscodeApi.postMessage({ type: 'clipboard-copy', text: sel });
+        term.clearSelection();
+        return false;
+      }
+    }
+
+    return true;
+  });
+
   // ── Focus: handled by content-overlay in renderer.ts ──
   // Overlay blocks mouse until tile is clicked (focused).
   // When focused, overlay pointerEvents=none → xterm receives input.
@@ -153,6 +185,14 @@ export function handlePtyData(sessionId: string, data: string): void {
   const inst = instances.get(sessionId);
   if (inst) {
     (inst as any).handlePtyData(data);
+  }
+}
+
+export function handleClipboardContent(sessionId: string, text: string): void {
+  const inst = instances.get(sessionId);
+  if (inst) {
+    // Use xterm paste() which handles bracketed paste mode
+    inst.terminal.paste(text);
   }
 }
 

@@ -8,7 +8,7 @@ import {
 } from './canvas/state';
 import { createTileDOM, removeTileDOM, positionAllTiles, positionTile, getTileDom } from './canvas/renderer';
 import { initInteractions, attachTileDrag, attachTileResize } from './canvas/interactions';
-import { createTerminal, getTerminalInstance, handlePtyData, handlePtyExit, updateAllThemes, refitAll, setVSCodeApi } from './terminal/terminal-tile';
+import { createTerminal, getTerminalInstance, handlePtyData, handlePtyExit, handleClipboardContent, updateAllThemes, refitAll, setVSCodeApi } from './terminal/terminal-tile';
 
 // Acquire VSCode API
 const vscode = acquireVsCodeApi();
@@ -298,6 +298,9 @@ window.addEventListener('message', (event) => {
       break;
     case 'pty-exit':
       handlePtyExit(msg.id);
+      break;
+    case 'clipboard-content':
+      handleClipboardContent(msg.id, msg.text);
       break;
     case 'theme-changed':
       requestAnimationFrame(() => {
